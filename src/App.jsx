@@ -708,9 +708,7 @@ function RunningTab({ onSave }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [stravaToken, setStravaToken] = useState("");
-  const [stravaClientId, setStravaClientId] = useState("");
-  const [stravaClientSecret, setStravaClientSecret] = useState("");
-  const [stravaCode, setStravaCode] = useState("");
+  const [stravaRefreshToken, setStravaRefreshToken] = useState("");
   const [stravaRuns, setStravaRuns] = useState([]);
   const [stravaLoading, setStravaLoading] = useState(false);
   const [stravaError, setStravaError] = useState("");
@@ -739,61 +737,95 @@ function RunningTab({ onSave }) {
     } catch { setError("Save failed — try again."); }
   };
 
-  const exchangeStravaToken = async () => {
-    if (!stravaClientId || !stravaClientSecret || !stravaCode) {
-      setStravaError("Fill in Client ID, Client Secret and auth code.");
-      return;
-    }
+  const VERCEL_URL = "https://stevens-gym-wqqz.vercel.app";
+  const STRAVA_CLIENT_ID = "204822";
+
+  const connectStrava = () => {
+    const redirect = VERCEL_URL + "/running";
+    window.location.href = "https://www.strava.com/oauth/authorize?client_id=" + STRAVA_CLIENT_ID + "&response_type=code&redirect_uri=" + encodeURIComponent(redirect) + "&approval_prompt=auto&scope=activity:read_all";
+  };
+
+  const exchangeStravaToken = async (code) => {
     setStravaLoading(true);
     setStravaError("");
     try {
-      const res = await fetch("https://www.strava.com/api/v3/oauth/token", {
+      const res = await fetch("/api/strava-auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_id: stravaClientId.trim(),
-          client_secret: stravaClientSecret.trim(),
-          code: stravaCode.trim().replace("code=", ""),
-          grant_type: "authorization_code",
-        })
+        body: JSON.stringify({ code, grant_type: "authorization_code" }),
       });
       const data = await res.json();
-      if (!res.ok || data.errors) throw new Error(data.message || "Token exchange failed");
+      if (!res.ok) throw new Error(data.error || "Token exchange failed");
       setStravaToken(data.access_token);
+      setStravaRefreshToken(data.refresh_token);
+      localStorage.setItem("strava_access_token", data.access_token);
+      localStorage.setItem("strava_refresh_token", data.refresh_token);
+      localStorage.setItem("strava_token_expiry", data.expires_at);
       setStravaError("");
     } catch(e) {
-      setStravaError("Failed: " + e.message + ". Try re-authorising in Step 1.");
+      setStravaError("Failed: " + e.message);
     }
     setStravaLoading(false);
   };
 
+  const refreshStravaToken = async () => {
+    const refreshToken = localStorage.getItem("strava_refresh_token");
+    if (!refreshToken) return false;
+    try {
+      const res = await fetch("/api/strava-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grant_type: "refresh_token", refresh_token: refreshToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setStravaToken(data.access_token);
+      localStorage.setItem("strava_access_token", data.access_token);
+      localStorage.setItem("strava_token_expiry", data.expires_at);
+      return data.access_token;
+    } catch { return false; }
+  };
+
   const fetchStrava = async () => {
-    if (!stravaToken.trim()) { setStravaError("Paste your Strava access token first."); return; }
     setStravaLoading(true);
     setStravaError("");
     try {
-      const res = await fetch("https://www.strava.com/api/v3/athlete/activities?per_page=10", {
-        headers: { "Authorization": "Bearer " + stravaToken.trim() }
+      let token = stravaToken || localStorage.getItem("strava_access_token");
+      const expiry = localStorage.getItem("strava_token_expiry");
+      if (expiry && Date.now() / 1000 > parseInt(expiry) - 300) {
+        token = await refreshStravaToken();
+      }
+      if (!token) { setStravaError("Not connected to Strava — tap Connect."); setStravaLoading(false); return; }
+      const res = await fetch("/api/strava-activities", {
+        headers: { "Authorization": "Bearer " + token }
       });
-      if (!res.ok) throw new Error("Strava error " + res.status + " — check your token");
-      const data = await res.json();
-      const runs = data.filter(a => a.type === "Run" || a.type === "VirtualRun").map(a => ({
-        id: a.id,
-        name: a.name,
-        date: a.start_date_local.split("T")[0],
-        distance: (a.distance / 1000).toFixed(2),
+      if (!res.ok) throw new Error("Strava error " + res.status);
+      const runs = await res.json();
+      setStravaRuns(runs.map(a => ({
+        id: a.id, name: a.name, date: a.date, distance: a.distance,
         time: Math.floor(a.moving_time / 60) + ":" + String(a.moving_time % 60).padStart(2, "0"),
-        pace: calcPace((a.distance / 1000).toFixed(2), Math.floor(a.moving_time / 60) + ":" + String(a.moving_time % 60).padStart(2, "0")),
+        pace: calcPace(a.distance, Math.floor(a.moving_time / 60) + ":" + String(a.moving_time % 60).padStart(2, "0")),
         elevGain: a.total_elevation_gain,
-        heartRate: a.average_heartrate ? Math.round(a.average_heartrate) : null,
-      }));
-      setStravaRuns(runs);
-      if (runs.length === 0) setStravaError("No recent runs found on Strava.");
-    } catch (e) {
+        heartRate: a.average_heartrate,
+      })));
+      if (runs.length === 0) setStravaError("No recent runs found.");
+    } catch(e) {
       setStravaError(e.message);
     }
     setStravaLoading(false);
   };
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const savedToken = localStorage.getItem("strava_access_token");
+    if (savedToken) { setStravaToken(savedToken); const rt = localStorage.getItem("strava_refresh_token"); if (rt) setStravaRefreshToken(rt); }
+    if (code) {
+      window.history.replaceState({}, "", window.location.pathname);
+      exchangeStravaToken(code);
+    }
+  }, []);
 
   const importStravaRun = async (run) => {
     const session = {
@@ -886,61 +918,33 @@ function RunningTab({ onSave }) {
       {tab === "strava" && (
         <div className="space-y-4">
           <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800 space-y-3">
-            <p className="text-white font-bold text-sm">Connect Strava</p>
-
-            {/* Step 1: Get auth code */}
-            <div className="space-y-1">
-              <p className="text-xs text-green-400 font-bold uppercase tracking-wider">Step 1 — Authorise</p>
-              <input value={stravaClientId} onChange={e => setStravaClientId(e.target.value)}
-                placeholder="Client ID (from strava.com/settings/api)"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-400" />
-              <button
-                onClick={() => {
-                  if (!stravaClientId.trim()) { setStravaError("Enter your Client ID first."); return; }
-                  window.open("https://www.strava.com/oauth/authorize?client_id=" + stravaClientId.trim() + "&response_type=code&redirect_uri=http://localhost&approval_prompt=force&scope=activity:read_all", "_blank");
-                }}
-                className="w-full py-2.5 rounded-xl font-black text-black text-sm"
-                style={{ background: "#00ff87" }}>
-                Open Strava Auth →
-              </button>
-              <p className="text-gray-600 text-xs">After authorising, copy the <span className="text-gray-400">code=XXXXX</span> value from the redirect URL</p>
-            </div>
-
-            {/* Step 2: Exchange code for token */}
-            <div className="space-y-1 pt-1 border-t border-gray-800">
-              <p className="text-xs text-green-400 font-bold uppercase tracking-wider">Step 2 — Get Token</p>
-              <input value={stravaClientSecret} onChange={e => setStravaClientSecret(e.target.value)}
-                placeholder="Client Secret"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-400" />
-              <input value={stravaCode} onChange={e => setStravaCode(e.target.value)}
-                placeholder="Auth code from redirect URL"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-400" />
-              <button onClick={exchangeStravaToken} disabled={stravaLoading}
-                className="w-full py-2.5 rounded-xl font-black text-black text-sm disabled:opacity-50"
-                style={{ background: "#00ff87" }}>
-                {stravaLoading ? "Getting token..." : "GET ACCESS TOKEN"}
-              </button>
-            </div>
-
-            {/* Direct token paste */}
-            <div className="space-y-1 pt-1 border-t border-gray-800">
-              <p className="text-xs text-green-400 font-bold uppercase tracking-wider">Already have a token?</p>
-              <div className="flex gap-2">
-                <input
-                  value={stravaToken}
-                  onChange={e => setStravaToken(e.target.value)}
-                  placeholder="Paste access token here"
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-400"
-                />
-                {stravaToken && <button onClick={() => setStravaToken("")} className="text-gray-600 text-xs hover:text-red-400 px-2">✕</button>}
+            <p className="text-white font-bold text-sm">Strava</p>
+            {stravaToken ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between bg-black rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400 text-sm">✓</span>
+                    <span className="text-gray-300 text-sm font-bold">Connected to Strava</span>
+                  </div>
+                  <button onClick={() => { setStravaToken(""); setStravaRefreshToken(""); localStorage.removeItem("strava_access_token"); localStorage.removeItem("strava_refresh_token"); localStorage.removeItem("strava_token_expiry"); setStravaRuns([]); }}
+                    className="text-gray-600 text-xs hover:text-red-400">Disconnect</button>
+                </div>
+                <button onClick={fetchStrava} disabled={stravaLoading}
+                  className="w-full py-3 rounded-xl font-black text-black text-sm disabled:opacity-50"
+                  style={{ background: "#00ff87" }}>
+                  {stravaLoading ? "Loading..." : "FETCH RECENT RUNS 🏃"}
+                </button>
               </div>
-              <button onClick={fetchStrava} disabled={stravaLoading || !stravaToken.trim()}
-                className="w-full py-3 rounded-xl font-black text-black text-sm disabled:opacity-40"
-                style={{ background: "#00ff87" }}>
-                {stravaLoading ? "Loading..." : "FETCH RECENT RUNS 🏃"}
-              </button>
-            </div>
-
+            ) : (
+              <div className="space-y-2">
+                <p className="text-gray-500 text-xs">Connect your Strava account to import runs automatically.</p>
+                <button onClick={connectStrava}
+                  className="w-full py-3 rounded-xl font-black text-sm"
+                  style={{ background: "#FC4C02", color: "white" }}>
+                  🔗 Connect with Strava
+                </button>
+              </div>
+            )}
             {stravaError && <p className="text-red-400 text-xs">{stravaError}</p>}
           </div>
 
