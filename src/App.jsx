@@ -560,43 +560,201 @@ function TrainTab(props) {
         </div>
       )}
 
-      {sub==="strava"&&(
+{sub==="strava"&&(
         <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
-          <div style={{background:C.surface,border:"1px solid "+C.border,padding:14}}>
-            <Cap style={{marginBottom:8}}>Strava Access Token</Cap>
-            <div style={{fontSize:11,color:C.muted,fontFamily:F,lineHeight:1.6,marginBottom:10}}>Get a token at <strong style={{color:C.text}}>strava.com/settings/api</strong> under "Your Access Token". Tokens expire every 6 hours.</div>
-            <div style={{display:"flex",gap:8,marginBottom:10}}>
-              <Inp value={stravaToken} onChange={function(e){setStravaToken(e.target.value);}} placeholder="Paste token here" style={{flex:1}}/>
-              {stravaToken&&<button onClick={function(){setStravaToken("");try{localStorage.removeItem("strava_token");}catch(e){}setStravaRuns([]);}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:F,padding:"0 8px",flexShrink:0}}>x</button>}
-            </div>
-            <Btn onClick={fetchStrava} disabled={stravaLoading||!stravaToken.trim()} full={true}>{stravaLoading?"Loading...":"Fetch Recent Runs"}</Btn>
-            {stravaErr&&<div style={{fontSize:11,color:C.danger,marginTop:8,fontFamily:F}}>{stravaErr}</div>}
-          </div>
-          {stravaRuns.map(function(run){
-            return <div key={run.id} style={{background:C.surface,border:"1px solid "+C.border}}>
-              <div style={{padding:"12px 14px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:700,color:C.text,fontFamily:F,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{run.name}</div>
-                  <Cap style={{marginTop:2}}>{run.date}</Cap>
-                </div>
-                <Btn onClick={function(){importRun(run);}} disabled={importing===run.id} small={true} style={{background:C.accentDim,color:C.accent,boxShadow:"inset 0 0 0 1px "+C.accent+"40",flexShrink:0}}>{importing===run.id?"...":"Import"}</Btn>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,padding:"10px 14px"}}>
-                {[["Dist",run.distance+"km"],["Time",run.time],["Pace",run.pace||"--"]].map(function(item){
-                  return <div key={item[0]} style={{background:C.surface2,border:"1px solid "+C.border,padding:"6px 8px"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:item[0]==="Pace"?C.accent:C.text,fontFamily:F}}>{item[1]}</div>
-                    <Cap>{item[0]}</Cap>
-                  </div>;
-                })}
-              </div>
-            </div>;
-          })}
+          <StravaConnect onImport={onSave}/>
         </div>
       )}
+function StravaConnect(props) {
+  var onImport = props.onImport;
+  var [token, setToken] = useState(null);
+  var [runs, setRuns] = useState([]);
+  var [loading, setLoading] = useState(false);
+  var [importing, setImporting] = useState(null);
+  var [err, setErr] = useState("");
+
+  var CLIENT_ID = "204822";
+  var REDIRECT_URI = "https://stevens-gym-vnhb.vercel.app/strava-callback";
+
+  // On mount: check for OAuth code in URL or saved token
+  useEffect(function() {
+    var params = new URLSearchParams(window.location.search);
+    var code = params.get("code");
+    if (code) {
+      // Exchange code for token
+      window.history.replaceState({}, "", window.location.pathname);
+      setLoading(true);
+      fetch("/api/strava-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, grant_type: "authorization_code" })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.access_token) {
+          var t = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at };
+          localStorage.setItem("strava_oauth", JSON.stringify(t));
+          setToken(t);
+          fetchRuns(t.access_token);
+        } else {
+          setErr("Strava connection failed. Try again.");
+          setLoading(false);
+        }
+      })
+      .catch(function() { setErr("Connection error."); setLoading(false); });
+    } else {
+      // Check saved token
+      try {
+        var saved = localStorage.getItem("strava_oauth");
+        if (saved) {
+          var t = JSON.parse(saved);
+          // Refresh if expired
+          if (Date.now() / 1000 > t.expires_at - 300) {
+            refreshToken(t.refresh_token);
+          } else {
+            setToken(t);
+            fetchRuns(t.access_token);
+          }
+        }
+      } catch(e) {}
+    }
+  }, []);
+
+  function refreshToken(refresh_token) {
+    setLoading(true);
+    fetch("/api/strava-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ grant_type: "refresh_token", refresh_token })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.access_token) {
+        var t = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at };
+        localStorage.setItem("strava_oauth", JSON.stringify(t));
+        setToken(t);
+        fetchRuns(t.access_token);
+      } else {
+        localStorage.removeItem("strava_oauth");
+        setToken(null);
+        setLoading(false);
+      }
+    })
+    .catch(function() { setLoading(false); });
+  }
+
+  function fetchRuns(access_token) {
+    setLoading(true); setErr("");
+    fetch("/api/strava-activities", {
+      headers: { Authorization: "Bearer " + access_token }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (Array.isArray(data)) { setRuns(data); }
+      else { setErr("Could not load runs."); }
+      setLoading(false);
+    })
+    .catch(function() { setErr("Failed to fetch runs."); setLoading(false); });
+  }
+
+  function connectStrava() {
+    var url = "https://www.strava.com/oauth/authorize" +
+      "?client_id=" + CLIENT_ID +
+      "&redirect_uri=" + encodeURIComponent(REDIRECT_URI) +
+      "&response_type=code" +
+      "&scope=activity:read_all";
+    window.location.href = url;
+  }
+
+  function disconnect() {
+    localStorage.removeItem("strava_oauth");
+    setToken(null); setRuns([]);
+  }
+
+  function calcPaceFromRun(run) {
+    if (!run.distance || !run.moving_time) return null;
+    var pace = (run.moving_time / 60) / parseFloat(run.distance);
+    return Math.floor(pace) + ":" + String(Math.round((pace % 1) * 60)).padStart(2, "0") + "/km";
+  }
+
+  function importRun(run) {
+    setImporting(run.id);
+    var pace = calcPaceFromRun(run);
+    onImport({
+      id: Date.now() + "",
+      date: run.date,
+      type: "Run",
+      totalTime: run.time,
+      duration: run.time,
+      rounds: 1,
+      notes: [run.name, pace ? "Pace: " + pace : null].filter(Boolean).join(" - "),
+      weights: {},
+      exercises: [],
+      runData: { distance: parseFloat(run.distance), time: run.time, pace }
+    }).then(function() { setImporting(null); });
+  }
+
+  if (!token) {
+    return (
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{background:C.surface,border:"1px solid "+C.border,padding:20,textAlign:"center"}}>
+          <div style={{fontSize:32,marginBottom:8}}>🏃</div>
+          <div style={{fontSize:15,fontWeight:700,color:C.text,fontFamily:F,marginBottom:6}}>Connect Strava</div>
+          <div style={{fontSize:13,color:C.muted,fontFamily:F,lineHeight:1.6,marginBottom:16}}>Link your Strava account to import your recent runs directly into your training log.</div>
+          <button onClick={connectStrava} style={{display:"block",width:"100%",padding:"13px",background:C.orange,border:"none",color:"#fff",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>
+            Connect with Strava
+          </button>
+        </div>
+        {err && <div style={{fontSize:12,color:C.danger,fontFamily:F}}>{err}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:8,height:8,borderRadius:"50%",background:C.green}}/>
+          <Cap color={C.green}>Strava Connected</Cap>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={function(){fetchRuns(token.access_token);}} style={{background:"none",border:"1px solid "+C.border,color:C.muted,padding:"4px 10px",fontSize:9,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>Refresh</button>
+          <button onClick={disconnect} style={{background:"none",border:"none",color:C.faint,padding:"4px 0",fontSize:9,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>Disconnect</button>
+        </div>
+      </div>
+
+      {loading && <div style={{textAlign:"center",padding:20,color:C.muted,fontFamily:F,fontSize:13}}>Loading runs...</div>}
+      {err && <div style={{fontSize:12,color:C.danger,fontFamily:F}}>{err}</div>}
+
+      {!loading && runs.length === 0 && <div style={{textAlign:"center",padding:20,color:C.muted,fontFamily:F,fontSize:13}}>No recent runs found.</div>}
+
+      {runs.map(function(run) {
+        var pace = calcPaceFromRun(run);
+        return (
+          <div key={run.id} style={{background:C.surface,border:"1px solid "+C.border}}>
+            <div style={{padding:"12px 14px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.text,fontFamily:F,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{run.name}</div>
+                <Cap style={{marginTop:2}}>{run.date}</Cap>
+              </div>
+              <Btn onClick={function(){importRun(run);}} disabled={importing===run.id} small={true} style={{background:C.accentDim,color:C.accent,boxShadow:"inset 0 0 0 1px "+C.accent+"40",flexShrink:0}}>
+                {importing===run.id?"...":"Import"}
+              </Btn>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,padding:"10px 14px"}}>
+              {[["Dist",run.distance+"km"],["Time",run.time],["Pace",pace||"--"]].map(function(item){
+                return <div key={item[0]} style={{background:C.surface2,border:"1px solid "+C.border,padding:"6px 8px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:item[0]==="Pace"?C.accent:C.text,fontFamily:F}}>{item[1]}</div>
+                  <Cap>{item[0]}</Cap>
+                </div>;
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
-
 // ---- WEEK FORM ----
 function WeekForm(props) {
   var data=props.data,setData=props.setData;
