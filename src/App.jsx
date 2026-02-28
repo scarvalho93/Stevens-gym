@@ -1,4 +1,3 @@
-// v2
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -15,43 +14,33 @@ var C = {
 };
 var F = "'Helvetica Neue','Arial',system-ui,sans-serif";
 
-// ---- SEED DATA ----
-var HYROX_PLAN = [
-  {week:1,date:"23 Feb",rounds:3,duration:"45",focus:"Build The Base",notes:"Easy pace. Get comfortable with the flow.",exercises:["500m Ski Erg","500m Run","20 Wall Balls","15 Burpees Broad Jump","100m Farmers Carry","15 Walking Lunges"]},
-  {week:2,date:"2 Mar",rounds:3,duration:"45",focus:"Consistency",notes:"Same structure. Push the runs slightly harder.",exercises:["500m Ski Erg","500m Run","20 Wall Balls","15 Burpees Broad Jump","100m Farmers Carry","15 Walking Lunges"]},
-  {week:3,date:"9 Mar",rounds:3,duration:"50",focus:"Volume Up",notes:"Increase reps. Up wall ball weight if possible.",exercises:["500m Ski Erg","500m Run","20 Wall Balls","20 Burpees Broad Jump","100m Farmers Carry","20 Walking Lunges"]},
-  {week:4,date:"16 Mar",rounds:4,duration:"55",focus:"Add A Round",notes:"Four rounds now. Allow an extra 10 mins.",exercises:["500m Ski Erg","500m Run","20 Wall Balls","20 Burpees Broad Jump","100m Farmers Carry","15 Walking Lunges"]},
-  {week:5,date:"23 Mar",rounds:4,duration:"55",focus:"Strength Endurance",notes:"Back to 25 burpees. Don't slow in round 4.",exercises:["500m Ski Erg","500m Run","20 Wall Balls","25 Burpees Broad Jump","100m Farmers Carry","20 Walking Lunges"]},
-  {week:6,date:"30 Mar",rounds:4,duration:"55",focus:"Race Pace",notes:"Treat this like race day. Time yourself.",exercises:["500m Ski Erg","500m Run","20 Wall Balls","25 Burpees Broad Jump","100m Farmers Carry","20 Walking Lunges"]},
-  {week:7,date:"6 Apr",rounds:3,duration:"45",focus:"Taper Begins",notes:"Back to 3 rounds. Keep intensity, protect the body.",exercises:["500m Ski Erg","500m Run","20 Wall Balls","15 Burpees Broad Jump","100m Farmers Carry","15 Walking Lunges"]},
-  {week:8,date:"13 Apr",rounds:2,duration:"30",focus:"Race Week",notes:"Light and sharp. Hyrox on 16th April.",exercises:["500m Ski Erg","500m Run","15 Wall Balls","10 Burpees Broad Jump","100m Farmers Carry"]},
-];
-var STRENGTH_PLAN = [
-  {week:1,date:"W1",rounds:1,duration:"50",focus:"Upper Body Foundation",notes:"Chest, shoulders, back.",exercises:["Bench Press 4x10","Overhead Press 3x10","Pull Ups 3x8","Lateral Raises 3x15","Tricep Dips 3x12"]},
-  {week:2,date:"W2",rounds:1,duration:"50",focus:"Lower Body",notes:"Legs and posterior chain.",exercises:["Squats 4x10","Romanian Deadlift 3x10","Leg Press 3x12","Leg Curl 3x12","Calf Raises 4x15"]},
-  {week:3,date:"W3",rounds:1,duration:"55",focus:"Push Volume",notes:"Increase bench and press volume.",exercises:["Bench Press 5x8","Incline Dumbbell 4x10","Overhead Press 4x10","Lateral Raises 4x15","Skullcrushers 3x12"]},
-  {week:4,date:"W4",rounds:1,duration:"55",focus:"Pull Volume",notes:"Back and biceps focus.",exercises:["Barbell Row 4x8","Pull Ups 4x8","Lat Pulldown 3x10","Face Pulls 3x15","Bicep Curls 3x12"]},
-];
-var SEED_SESSIONS = [
-  {id:"seed1",date:"2026-02-22",type:"Sunday Hyrox",totalTime:"49:42",duration:"49:42",rounds:3,
-   weights:{"Wall Balls":"9","Farmers Carry L1":"32","Farmers Carry L2":"24","Lunge Bag":"20"},
-   notes:"Box jump to burpee variation. Strong first session.",exercises:[]},
-  {id:"seed2",date:"2026-02-22",type:"Strength",totalTime:"--",duration:"1:12:00",rounds:1,weights:{},
-   notes:"Chest, legs, arms",exercises:[
-    {name:"Bench Press",sets:[{reps:12,weight:"60kg"},{reps:9,weight:"65kg"},{reps:8,weight:"65kg"}]},
-    {name:"Pull Ups",sets:[{reps:10,weight:"BW"},{reps:10,weight:"BW"},{reps:8,weight:"BW"}]},
-    {name:"Squats",sets:[{reps:8,weight:"85kg"},{reps:10,weight:"85kg"},{reps:8,weight:"95kg"}]},
-    {name:"Skullcrushers",sets:[{reps:15,weight:"10kg"},{reps:15,weight:"10kg"},{reps:15,weight:"10kg"}]},
-    {name:"Lateral Raises",sets:[{reps:15,weight:"10kg"},{reps:12,weight:"10kg"}]},
-  ]},
-];
-var DEFAULT_TARGETS = [
-  {id:1,name:"Hyrox Race Time",target:"45:00",unit:"mm:ss",current:"49:42",target2:"",current2:"",category:"Hyrox",notes:"Overall race time"},
-  {id:2,name:"Farmers Carry",target:"40",unit:"kg",current:"32",target2:"40",current2:"24",category:"Hyrox",notes:"Leg 1 / Leg 2"},
-  {id:3,name:"Bench Press 1RM",target:"100",unit:"kg",current:"65",target2:"",current2:"",category:"Strength",notes:""},
-  {id:4,name:"Squat 1RM",target:"120",unit:"kg",current:"95",target2:"",current2:"",category:"Strength",notes:""},
-  {id:5,name:"5k Run Pace",target:"5:00",unit:"/km",current:"",target2:"",current2:"",category:"Running",notes:""},
-];
+// ---- DEFAULT TARGETS BY GOAL ----
+var GOAL_TARGETS = {
+  "Hyrox": [
+    {id:1,name:"Hyrox Race Time",target:"45:00",unit:"mm:ss",current:"",target2:"",current2:"",category:"Hyrox",notes:""},
+    {id:2,name:"Farmers Carry",target:"40",unit:"kg",current:"",target2:"40",current2:"",category:"Hyrox",notes:"Leg 1 / Leg 2"},
+    {id:3,name:"Wall Ball Weight",target:"10",unit:"kg",current:"",target2:"",current2:"",category:"Hyrox",notes:""},
+  ],
+  "Marathon / Running": [
+    {id:1,name:"Marathon Time",target:"4:00:00",unit:"h:mm:ss",current:"",target2:"",current2:"",category:"Running",notes:""},
+    {id:2,name:"5K Pace",target:"5:00",unit:"/km",current:"",target2:"",current2:"",category:"Running",notes:""},
+    {id:3,name:"Weekly Distance",target:"50",unit:"km",current:"",target2:"",current2:"",category:"Running",notes:""},
+  ],
+  "Strength & Muscle": [
+    {id:1,name:"Bench Press 1RM",target:"100",unit:"kg",current:"",target2:"",current2:"",category:"Strength",notes:""},
+    {id:2,name:"Squat 1RM",target:"120",unit:"kg",current:"",target2:"",current2:"",category:"Strength",notes:""},
+    {id:3,name:"Deadlift 1RM",target:"140",unit:"kg",current:"",target2:"",current2:"",category:"Strength",notes:""},
+  ],
+  "Weight Loss": [
+    {id:1,name:"Target Weight",target:"",unit:"kg",current:"",target2:"",current2:"",category:"Body",notes:""},
+    {id:2,name:"Daily Calories",target:"2000",unit:"kcal",current:"",target2:"",current2:"",category:"Nutrition",notes:""},
+    {id:3,name:"Weekly Cardio",target:"3",unit:"sessions",current:"",target2:"",current2:"",category:"Fitness",notes:""},
+  ],
+  "General Fitness": [
+    {id:1,name:"Weekly Sessions",target:"4",unit:"sessions",current:"",target2:"",current2:"",category:"Fitness",notes:""},
+    {id:2,name:"Resting Heart Rate",target:"60",unit:"bpm",current:"",target2:"",current2:"",category:"Health",notes:""},
+  ],
+};
 
 // ---- SUPABASE DATA LAYER ----
 async function dbLoad(userId, key) {
@@ -212,6 +201,269 @@ function MsgContent(props) {
   return <div style={{margin:0,padding:0}}>{blocks.map(renderBlock).filter(Boolean)}</div>;
 }
 
+// ---- ONBOARDING ----
+var GOAL_OPTIONS = ["Hyrox","Marathon / Running","Strength & Muscle","Weight Loss","General Fitness","Something else"];
+
+function OnboardingScreen(props) {
+  var userName = props.userName;
+  var onComplete = props.onComplete;
+  var [step, setStep] = useState(0);
+  var [goals, setGoals] = useState([]);
+  var [eventDate, setEventDate] = useState("");
+  var [age, setAge] = useState("");
+  var [weight, setWeight] = useState("");
+  var [eventName, setEventName] = useState("");
+
+  var needsEvent = goals.includes("Hyrox") || goals.includes("Marathon / Running");
+
+  function toggleGoal(g) {
+    setGoals(function(prev) {
+      return prev.includes(g) ? prev.filter(function(x){return x!==g;}) : prev.concat([g]);
+    });
+  }
+
+  function finish() {
+    var targets = [];
+    var idCounter = 1;
+    goals.forEach(function(g) {
+      if (GOAL_TARGETS[g]) {
+        GOAL_TARGETS[g].forEach(function(t) {
+          targets.push(Object.assign({}, t, {id: idCounter++}));
+        });
+      }
+    });
+    onComplete({goals: goals, eventDate: eventDate, eventName: eventName, age: age, weight: weight, targets: targets});
+  }
+
+  var stepStyle = {minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",padding:"40px 24px 40px"};
+
+  if (step === 0) {
+    return (
+      <div style={stepStyle}>
+        <div style={{flex:1}}>
+          <div style={{marginBottom:32}}>
+            <div style={{fontSize:28,fontWeight:900,color:C.text,fontFamily:F,lineHeight:1.2,marginBottom:8}}>
+              Hey {userName} 👋
+            </div>
+            <div style={{fontSize:15,color:C.muted,fontFamily:F,lineHeight:1.6}}>
+              Let's set up your training. What are you working towards?
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {GOAL_OPTIONS.map(function(g) {
+              var selected = goals.includes(g);
+              return (
+                <button key={g} onClick={function(){toggleGoal(g);}} style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:selected?C.accentDim:C.surface,border:"1px solid "+(selected?C.accent:C.border),cursor:"pointer",fontFamily:F,textAlign:"left"}}>
+                  <div style={{width:20,height:20,border:"2px solid "+(selected?C.accent:C.faint),background:selected?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    {selected&&<div style={{width:10,height:10,background:"#000"}}/>}
+                  </div>
+                  <span style={{fontSize:15,fontWeight:600,color:selected?C.accent:C.text}}>{g}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{marginTop:24}}>
+          <div style={{fontSize:11,color:C.faint,fontFamily:F,marginBottom:12,textAlign:"center"}}>{goals.length} selected</div>
+          <Btn onClick={function(){setStep(1);}} disabled={goals.length===0} full={true}>Continue →</Btn>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 1) {
+    return (
+      <div style={stepStyle}>
+        <div style={{flex:1}}>
+          <div style={{marginBottom:32}}>
+            <div style={{fontSize:22,fontWeight:900,color:C.text,fontFamily:F,marginBottom:8}}>A bit about you</div>
+            <div style={{fontSize:14,color:C.muted,fontFamily:F,lineHeight:1.6}}>This helps your coach give better advice.</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div>
+              <Cap style={{marginBottom:6}}>Age</Cap>
+              <Inp type="number" value={age} onChange={function(e){setAge(e.target.value);}} placeholder="e.g. 28"/>
+            </div>
+            <div>
+              <Cap style={{marginBottom:6}}>Weight (kg)</Cap>
+              <Inp type="number" value={weight} onChange={function(e){setWeight(e.target.value);}} placeholder="e.g. 80"/>
+            </div>
+            {needsEvent && (
+              <>
+                <div>
+                  <Cap style={{marginBottom:6}}>Event Name</Cap>
+                  <Inp value={eventName} onChange={function(e){setEventName(e.target.value);}} placeholder="e.g. Hyrox London, Paris Marathon"/>
+                </div>
+                <div>
+                  <Cap style={{marginBottom:6}}>Event Date</Cap>
+                  <input type="date" value={eventDate} onChange={function(e){setEventDate(e.target.value);}} style={{display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 13px",outline:"none"}}/>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:24}}>
+          <Btn outline={true} onClick={function(){setStep(0);}}>← Back</Btn>
+          <Btn onClick={finish}>Let's Go →</Btn>
+        </div>
+      </div>
+    );
+  }
+}
+
+// ---- SETTINGS OVERLAY ----
+function SettingsOverlay(props) {
+  var user = props.user;
+  var profile = props.profile;
+  var onClose = props.onClose;
+  var onUpdate = props.onUpdate;
+
+  var [section, setSection] = useState("profile");
+  var [name, setName] = useState(profile.displayName || "");
+  var [age, setAge] = useState(profile.age || "");
+  var [weight, setWeight] = useState(profile.weight || "");
+  var [goals, setGoals] = useState(profile.goals || []);
+  var [eventName, setEventName] = useState(profile.eventName || "");
+  var [eventDate, setEventDate] = useState(profile.eventDate || "");
+  var [saved, setSaved] = useState(false);
+
+  var [currentPass, setCurrentPass] = useState("");
+  var [newPass, setNewPass] = useState("");
+  var [confirmPass, setConfirmPass] = useState("");
+  var [passMsg, setPassMsg] = useState("");
+  var [passErr, setPassErr] = useState("");
+  var [showCurrent, setShowCurrent] = useState(false);
+  var [showNew, setShowNew] = useState(false);
+  var [resetSent, setResetSent] = useState(false);
+
+  var needsEvent = goals.includes("Hyrox") || goals.includes("Marathon / Running");
+
+  function toggleGoal(g) {
+    setGoals(function(prev) {
+      return prev.includes(g) ? prev.filter(function(x){return x!==g;}) : prev.concat([g]);
+    });
+  }
+
+  function saveProfile() {
+    var updated = Object.assign({}, profile, {displayName: name, age: age, weight: weight, goals: goals, eventName: eventName, eventDate: eventDate});
+    onUpdate(updated);
+    setSaved(true);
+    setTimeout(function(){setSaved(false);}, 2000);
+  }
+
+  async function changePassword() {
+    setPassMsg(""); setPassErr("");
+    if (!newPass || newPass.length < 6) { setPassErr("New password must be at least 6 characters."); return; }
+    if (newPass !== confirmPass) { setPassErr("Passwords don't match."); return; }
+    var res = await sb.auth.updateUser({password: newPass});
+    if (res.error) { setPassErr(res.error.message); }
+    else { setPassMsg("Password updated!"); setCurrentPass(""); setNewPass(""); setConfirmPass(""); }
+  }
+
+  async function sendReset() {
+    await sb.auth.resetPasswordForEmail(user.email);
+    setResetSent(true);
+  }
+
+  var sections = [["profile","Profile"],["account","Account"],["apps","Connected Apps"]];
+  var passInp = {display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 40px 10px 13px",outline:"none"};
+
+  return (
+    <div style={{position:"fixed",inset:0,background:C.bg,zIndex:100,display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto"}}>
+      <div style={{padding:"16px 20px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+        <div style={{fontSize:14,fontWeight:900,letterSpacing:"0.1em",textTransform:"uppercase",color:C.text,fontFamily:F}}>Settings</div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:20,fontFamily:F,padding:0,lineHeight:1}}>×</button>
+      </div>
+
+      <div style={{display:"flex",borderBottom:"1px solid "+C.border,flexShrink:0}}>
+        {sections.map(function(s){
+          return <button key={s[0]} onClick={function(){setSection(s[0]);}} style={{flex:1,padding:"10px 0",background:"none",border:"none",borderBottom:"2px solid "+(section===s[0]?C.accent:"transparent"),color:section===s[0]?C.accent:C.muted,fontSize:8,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>{s[1]}</button>;
+        })}
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
+
+        {section==="profile"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div><Cap style={{marginBottom:6}}>Display Name</Cap><Inp value={name} onChange={function(e){setName(e.target.value);}} placeholder="Your name"/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><Cap style={{marginBottom:6}}>Age</Cap><Inp type="number" value={age} onChange={function(e){setAge(e.target.value);}} placeholder="e.g. 28"/></div>
+              <div><Cap style={{marginBottom:6}}>Weight (kg)</Cap><Inp type="number" value={weight} onChange={function(e){setWeight(e.target.value);}} placeholder="e.g. 80"/></div>
+            </div>
+            <div>
+              <Cap style={{marginBottom:8}}>Goals</Cap>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {GOAL_OPTIONS.filter(function(g){return g!=="Something else";}).map(function(g){
+                  var sel = goals.includes(g);
+                  return <button key={g} onClick={function(){toggleGoal(g);}} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:sel?C.accentDim:C.surface2,border:"1px solid "+(sel?C.accent:C.border),cursor:"pointer",fontFamily:F,textAlign:"left"}}>
+                    <div style={{width:16,height:16,border:"2px solid "+(sel?C.accent:C.faint),background:sel?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {sel&&<div style={{width:8,height:8,background:"#000"}}/>}
+                    </div>
+                    <span style={{fontSize:13,fontWeight:600,color:sel?C.accent:C.text}}>{g}</span>
+                  </button>;
+                })}
+              </div>
+            </div>
+            {needsEvent&&(
+              <>
+                <div><Cap style={{marginBottom:6}}>Event Name</Cap><Inp value={eventName} onChange={function(e){setEventName(e.target.value);}} placeholder="e.g. Hyrox London"/></div>
+                <div><Cap style={{marginBottom:6}}>Event Date</Cap><input type="date" value={eventDate} onChange={function(e){setEventDate(e.target.value);}} style={{display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 13px",outline:"none"}}/></div>
+              </>
+            )}
+            <Btn onClick={saveProfile} full={true} style={{marginTop:8,background:saved?C.green:C.accent}}>{saved?"Saved!":"Save Profile"}</Btn>
+          </div>
+        )}
+
+        {section==="account"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:20}}>
+            <div style={{background:C.surface,border:"1px solid "+C.border,padding:14}}>
+              <Cap style={{marginBottom:4}}>Email</Cap>
+              <div style={{fontSize:14,color:C.text,fontFamily:F}}>{user.email}</div>
+            </div>
+
+            <div>
+              <Cap style={{marginBottom:12}}>Change Password</Cap>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{position:"relative"}}>
+                  <input type={showCurrent?"text":"password"} value={newPass} onChange={function(e){setNewPass(e.target.value);}} placeholder="New password" style={passInp}/>
+                  <button onClick={function(){setShowNew(!showNew);}} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:12,fontFamily:F}}>
+                    {showNew?"hide":"show"}
+                  </button>
+                </div>
+                <div style={{position:"relative"}}>
+                  <input type={showCurrent?"text":"password"} value={confirmPass} onChange={function(e){setConfirmPass(e.target.value);}} placeholder="Confirm new password" style={passInp}/>
+                </div>
+                {passErr&&<div style={{fontSize:12,color:C.danger,fontFamily:F}}>{passErr}</div>}
+                {passMsg&&<div style={{fontSize:12,color:C.green,fontFamily:F}}>{passMsg}</div>}
+                <Btn onClick={changePassword} disabled={!newPass||!confirmPass} full={true}>Update Password</Btn>
+              </div>
+            </div>
+
+            <div style={{borderTop:"1px solid "+C.border,paddingTop:20}}>
+              <Cap style={{marginBottom:8}}>Forgot your password?</Cap>
+              <div style={{fontSize:12,color:C.muted,fontFamily:F,marginBottom:10,lineHeight:1.5}}>Send a reset link to {user.email}</div>
+              {resetSent
+                ? <div style={{fontSize:12,color:C.green,fontFamily:F}}>Reset email sent! Check your inbox.</div>
+                : <Btn outline={true} onClick={sendReset} full={true}>Send Reset Email</Btn>
+              }
+            </div>
+
+            <div style={{borderTop:"1px solid "+C.border,paddingTop:20}}>
+              <Btn danger={true} onClick={function(){sb.auth.signOut();onClose();}} full={true}>Sign Out</Btn>
+            </div>
+          </div>
+        )}
+
+        {section==="apps"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <StravaConnect onImport={function(){}} settingsMode={true}/>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---- AUTH SCREEN ----
 function AuthScreen(props) {
   var [mode, setMode] = useState("login");
@@ -220,6 +472,7 @@ function AuthScreen(props) {
   var [name, setName] = useState("");
   var [err, setErr] = useState("");
   var [loading, setLoading] = useState(false);
+  var [showPass, setShowPass] = useState(false);
 
   async function doLogin() {
     setLoading(true); setErr("");
@@ -250,6 +503,8 @@ function AuthScreen(props) {
     );
   }
 
+  var passInpStyle = {display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 50px 10px 13px",outline:"none"};
+
   return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:32}}>
       <div style={{width:"100%",maxWidth:360}}>
@@ -267,7 +522,15 @@ function AuthScreen(props) {
             <div><Cap style={{marginBottom:5}}>Your Name</Cap><Inp value={name} onChange={function(e){setName(e.target.value);}} placeholder="First name"/></div>
           )}
           <div><Cap style={{marginBottom:5}}>Email</Cap><Inp type="email" value={email} onChange={function(e){setEmail(e.target.value);}} placeholder="you@email.com" onKeyDown={function(e){if(e.key==="Enter"){mode==="login"?doLogin():doSignup();}}}/></div>
-          <div><Cap style={{marginBottom:5}}>Password</Cap><Inp type="password" value={pass} onChange={function(e){setPass(e.target.value);}} placeholder={mode==="signup"?"Minimum 6 characters":"Your password"} onKeyDown={function(e){if(e.key==="Enter"){mode==="login"?doLogin():doSignup();}}}/></div>
+          <div>
+            <Cap style={{marginBottom:5}}>Password</Cap>
+            <div style={{position:"relative"}}>
+              <input type={showPass?"text":"password"} value={pass} onChange={function(e){setPass(e.target.value);}} placeholder={mode==="signup"?"Minimum 6 characters":"Your password"} onKeyDown={function(e){if(e.key==="Enter"){mode==="login"?doLogin():doSignup();}}} style={passInpStyle}/>
+              <button onClick={function(){setShowPass(!showPass);}} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:11,fontFamily:F,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase"}}>
+                {showPass?"hide":"show"}
+              </button>
+            </div>
+          </div>
           {err&&<div style={{fontSize:12,color:C.danger,fontFamily:F,padding:"8px 12px",background:C.danger+"15",border:"1px solid "+C.danger+"40"}}>{err}</div>}
           <Btn onClick={mode==="login"?doLogin:doSignup} disabled={loading||!email.trim()||!pass} full={true} style={{marginTop:4}}>
             {loading?"...":(mode==="login"?"Log In":"Create Account")}
@@ -300,6 +563,11 @@ function SessionsTab(props) {
         </div>
       </div>
       <HR/>
+      {sorted.length===0&&(
+        <div style={{padding:"40px 20px",textAlign:"center"}}>
+          <div style={{fontSize:13,color:C.muted,fontFamily:F,lineHeight:1.6}}>No sessions yet. Head to Train to log your first session.</div>
+        </div>
+      )}
       {sorted.map(function(s){
         var isOpen=openId===s.id;
         var dur=fmtDur(s.duration);
@@ -352,7 +620,7 @@ function SessionsTab(props) {
                     })}
                   </div>
                 )}
-                {s.id!=="seed1"&&s.id!=="seed2"&&<button onClick={function(){onDelete(s.id);}} style={{background:"none",border:"none",cursor:"pointer",color:C.faint,fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:F,padding:0,marginTop:4}}>Delete</button>}
+                <button onClick={function(){onDelete(s.id);}} style={{background:"none",border:"none",cursor:"pointer",color:C.faint,fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:F,padding:0,marginTop:4}}>Delete</button>
               </div>
             )}
             <HR/>
@@ -366,6 +634,7 @@ function SessionsTab(props) {
 // ---- STRAVA CONNECT ----
 function StravaConnect(props) {
   var onImport = props.onImport;
+  var settingsMode = props.settingsMode || false;
   var [token, setToken] = useState(null);
   var [runs, setRuns] = useState([]);
   var [loading, setLoading] = useState(false);
@@ -408,7 +677,7 @@ function StravaConnect(props) {
             doRefreshToken(t.refresh_token);
           } else {
             setToken(t);
-            fetchRuns(t.access_token);
+            if (!settingsMode) fetchRuns(t.access_token);
           }
         }
       } catch(e) {}
@@ -428,7 +697,7 @@ function StravaConnect(props) {
         var t = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at };
         localStorage.setItem("strava_oauth", JSON.stringify(t));
         setToken(t);
-        fetchRuns(t.access_token);
+        if (!settingsMode) fetchRuns(t.access_token);
       } else {
         localStorage.removeItem("strava_oauth");
         setToken(null);
@@ -501,6 +770,23 @@ function StravaConnect(props) {
           </button>
         </div>
         {err&&<div style={{fontSize:12,color:C.danger,fontFamily:F}}>{err}</div>}
+      </div>
+    );
+  }
+
+  if (settingsMode) {
+    return (
+      <div style={{background:C.surface,border:"1px solid "+C.border,padding:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:10,height:10,borderRadius:"50%",background:C.green}}/>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:C.text,fontFamily:F}}>Strava</div>
+              <Cap color={C.green}>Connected</Cap>
+            </div>
+          </div>
+          <button onClick={disconnect} style={{background:"none",border:"1px solid "+C.border,color:C.muted,padding:"6px 12px",fontSize:9,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>Disconnect</button>
+        </div>
       </div>
     );
   }
@@ -739,9 +1025,9 @@ function WeekForm(props) {
 
 // ---- PLAN TAB ----
 function PlanTab(props) {
-  var userId=props.userId,onPlanUpdate=props.onPlanUpdate,onLogSession=props.onLogSession;
+  var userId=props.userId,onPlanUpdate=props.onPlanUpdate,onLogSession=props.onLogSession,userProfile=props.userProfile;
   var [pt, setPt] = useState("hyrox");
-  var [plans, setPlans] = useState({hyrox:HYROX_PLAN,strength:STRENGTH_PLAN,running:[],custom:[]});
+  var [plans, setPlans] = useState({hyrox:[],strength:[],running:[],custom:[]});
   var [openW, setOpenW] = useState(null);
   var [editing, setEditing] = useState(null);
   var [editD, setEditD] = useState(null);
@@ -751,7 +1037,18 @@ function PlanTab(props) {
   var [compTime, setCompTime] = useState("");
   var [compNotes, setCompNotes] = useState("");
   var [doneWeeks, setDoneWeeks] = useState({});
-  var daysLeft=Math.max(0,Math.ceil((new Date("2026-04-16")-new Date())/86400000));
+
+  var goals = (userProfile && userProfile.goals) || [];
+  var eventDate = (userProfile && userProfile.eventDate) || "";
+  var eventName = (userProfile && userProfile.eventName) || "Race Day";
+  var daysLeft = eventDate ? Math.max(0,Math.ceil((new Date(eventDate)-new Date())/86400000)) : null;
+
+  // Set default tab based on goals
+  useEffect(function(){
+    if (goals.includes("Hyrox")) setPt("hyrox");
+    else if (goals.includes("Marathon / Running")) setPt("running");
+    else if (goals.includes("Strength & Muscle")) setPt("strength");
+  }, [goals]);
 
   useEffect(function(){
     dbLoad(userId,"plans").then(function(d){if(d){setPlans(function(p){return Object.assign({},p,d);});if(onPlanUpdate){onPlanUpdate(d);}}});
@@ -781,34 +1078,25 @@ function PlanTab(props) {
     });
   }
 
+  var planTabs = [["hyrox","Hyrox"],["strength","Strength"],["running","Running"],["custom","Custom"]];
+
   return (
     <div style={{paddingBottom:100}}>
       <div style={{padding:"28px 20px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
         <div><Cap>Plans</Cap><div style={{fontSize:24,fontWeight:900,letterSpacing:"-0.03em",color:C.text,marginTop:6,fontFamily:F}}>Programme</div></div>
-        {pt==="hyrox"&&<div style={{textAlign:"right"}}><div style={{fontSize:32,fontWeight:900,letterSpacing:"-0.04em",color:C.accent,fontFamily:F}}>{daysLeft}</div><Cap>days to race</Cap></div>}
+        {daysLeft!==null&&<div style={{textAlign:"right"}}><div style={{fontSize:32,fontWeight:900,letterSpacing:"-0.04em",color:C.accent,fontFamily:F}}>{daysLeft}</div><Cap>days to {eventName||"race"}</Cap></div>}
       </div>
       <HR/>
       <div style={{display:"flex",borderBottom:"1px solid "+C.border,overflowX:"auto"}}>
-        {["hyrox","strength","running","custom"].map(function(t){
-          return <button key={t} onClick={function(){setPt(t);setOpenW(null);setEditing(null);}} style={{flex:"0 0 auto",padding:"11px 18px",background:"none",border:"none",borderBottom:"2px solid "+(pt===t?C.accent:"transparent"),color:pt===t?C.accent:C.muted,fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F,whiteSpace:"nowrap"}}>{t}</button>;
+        {planTabs.map(function(t){
+          return <button key={t[0]} onClick={function(){setPt(t[0]);setOpenW(null);setEditing(null);}} style={{flex:"0 0 auto",padding:"11px 18px",background:"none",border:"none",borderBottom:"2px solid "+(pt===t[0]?C.accent:"transparent"),color:pt===t[0]?C.accent:C.muted,fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F,whiteSpace:"nowrap"}}>{t[1]}</button>;
         })}
       </div>
-      {pt==="running"&&cur.length===0&&!showAdd&&(
-        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
-          <div style={{background:C.surface,border:"1px solid "+C.border,padding:18}}>
-            <Tag color={C.orange}>Recommended</Tag>
-            <div style={{fontSize:15,fontWeight:700,color:C.text,marginTop:10,marginBottom:6,fontFamily:F}}>Runna</div>
-            <div style={{fontSize:13,color:C.muted,lineHeight:1.6,marginBottom:14,fontFamily:F}}>Personalised running plans. Syncs to Strava, imports here automatically.</div>
-            <a href="https://runna.com" target="_blank" rel="noreferrer" style={{display:"block",padding:"11px 14px",background:C.orange,color:"#fff",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",textDecoration:"none",textAlign:"center",fontFamily:F}}>Open Runna</a>
-          </div>
-          <Btn outline={true} onClick={function(){setShowAdd(true);}} full={true}>+ Build Your Own</Btn>
-        </div>
-      )}
-      {pt==="custom"&&cur.length===0&&!showAdd&&(
+      {cur.length===0&&!showAdd&&(
         <div style={{padding:"40px 20px",textAlign:"center"}}>
           <div style={{fontSize:32,marginBottom:10,color:C.accent}}>+</div>
-          <div style={{fontSize:15,fontWeight:700,color:C.text,fontFamily:F,marginBottom:6}}>Custom Plan</div>
-          <div style={{fontSize:13,color:C.muted,fontFamily:F,lineHeight:1.6,marginBottom:20}}>Build any programme - mobility, sport-specific, off-season.</div>
+          <div style={{fontSize:15,fontWeight:700,color:C.text,fontFamily:F,marginBottom:6}}>No plan yet</div>
+          <div style={{fontSize:13,color:C.muted,fontFamily:F,lineHeight:1.6,marginBottom:20}}>Build your {pt} programme week by week.</div>
           <Btn onClick={function(){setShowAdd(true);}} full={true}>+ Add First Week</Btn>
         </div>
       )}
@@ -877,11 +1165,11 @@ function PlanTab(props) {
       ):cur.length>0&&(
         <div style={{padding:"16px 20px"}}><Btn outline={true} onClick={function(){setShowAdd(true);}} full={true}>+ Add Week</Btn></div>
       )}
-      {pt==="hyrox"&&(
+      {eventDate&&(
         <div style={{margin:"4px 20px 20px",background:C.accentDim,border:"1px solid "+C.accent+"30",padding:"14px 18px"}}>
           <Tag>Race Day</Tag>
-          <div style={{fontSize:18,fontWeight:900,color:C.text,marginTop:8,fontFamily:F}}>16 April 2026</div>
-          <Cap style={{marginTop:3}}>Hyrox London</Cap>
+          <div style={{fontSize:18,fontWeight:900,color:C.text,marginTop:8,fontFamily:F}}>{eventDate}</div>
+          <Cap style={{marginTop:3}}>{eventName}</Cap>
         </div>
       )}
     </div>
@@ -891,7 +1179,7 @@ function PlanTab(props) {
 // ---- GOALS TAB ----
 function GoalsTab(props) {
   var userId=props.userId;
-  var [targets, setTargets] = useState(DEFAULT_TARGETS);
+  var [targets, setTargets] = useState([]);
   var [showAddFor, setShowAddFor] = useState(null);
   var [newT, setNewT] = useState({name:"",target:"",target2:"",unit:"kg",notes:""});
 
@@ -912,8 +1200,13 @@ function GoalsTab(props) {
 
   return (
     <div style={{paddingBottom:100}}>
-      <div style={{padding:"28px 20px 16px"}}><Cap>2026 Targets</Cap><div style={{fontSize:24,fontWeight:900,letterSpacing:"-0.03em",color:C.text,marginTop:6,fontFamily:F}}>Goals</div></div>
+      <div style={{padding:"28px 20px 16px"}}><Cap>Targets</Cap><div style={{fontSize:24,fontWeight:900,letterSpacing:"-0.03em",color:C.text,marginTop:6,fontFamily:F}}>Goals</div></div>
       <HR/>
+      {targets.length===0&&(
+        <div style={{padding:"40px 20px",textAlign:"center"}}>
+          <div style={{fontSize:13,color:C.muted,fontFamily:F,lineHeight:1.6}}>No goals yet. Add some below or update your goals in Settings.</div>
+        </div>
+      )}
       {cats.map(function(cat){
         return <div key={cat}>
           <div style={{padding:"10px 20px 8px",background:C.surface2,borderBottom:"1px solid "+C.border}}>
@@ -990,7 +1283,7 @@ function GoalsTab(props) {
       <div style={{padding:"16px 20px"}}>
         <Cap style={{marginBottom:8}}>New Category</Cap>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {["Hyrox","Strength","Running","Performance","Other"].filter(function(c){return cats.indexOf(c)===-1;}).map(function(c){
+          {["Hyrox","Strength","Running","Performance","Body","Nutrition","Other"].filter(function(c){return cats.indexOf(c)===-1;}).map(function(c){
             return <button key={c} onClick={function(){setShowAddFor(c);}} style={{padding:"6px 12px",background:"none",border:"1px solid "+C.border,color:C.muted,fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>{c}</button>;
           })}
         </div>
@@ -1001,9 +1294,8 @@ function GoalsTab(props) {
 
 // ---- COACH TAB ----
 function CoachTab(props) {
-  var sessions=props.sessions,targets=props.targets,plans=props.plans,userName=props.userName,userId=props.userId;
+  var sessions=props.sessions,targets=props.targets,plans=props.plans,userName=props.userName,userId=props.userId,userProfile=props.userProfile;
   var [nutLog, setNutLog] = useState([]);
-  var [nutDate, setNutDate] = useState(getToday());
   var [cals, setCals] = useState("");
   var [protein, setProtein] = useState("");
   var [carbs, setCarbs] = useState("");
@@ -1011,7 +1303,9 @@ function CoachTab(props) {
   var [nutNotes, setNutNotes] = useState("");
   var [nutSaved, setNutSaved] = useState(false);
   var [showNutForm, setShowNutForm] = useState(false);
-  var [msgs, setMsgs] = useState([{role:"assistant",content:"Hey "+userName+". I can see your training plan and goals.\n\nAsk me anything about nutrition, fuelling around your sessions, or how to eat for Hyrox. You can type or tap the mic to speak."}]);
+  var goals = (userProfile && userProfile.goals) || [];
+  var welcomeMsg = "Hey "+userName+". I know your training goals"+(goals.length?" ("+goals.join(", ")+")":" ")+". Ask me anything about nutrition, training, or fuelling around your sessions. You can type or tap the mic to speak.";
+  var [msgs, setMsgs] = useState([{role:"assistant",content:welcomeMsg}]);
   var [input, setInput] = useState("");
   var [loading, setLoading] = useState(false);
   var [speaking, setSpeaking] = useState(false);
@@ -1031,8 +1325,8 @@ function CoachTab(props) {
 
   function saveNutrition(){
     if(!cals) return;
-    var entry={id:Date.now(),date:nutDate,cals:cals,protein:protein,carbs:carbs,fat:fat,notes:nutNotes};
-    var newLog=nutLog.filter(function(e){return e.date!==nutDate;}).concat([entry]);
+    var entry={id:Date.now(),date:getToday(),cals:cals,protein:protein,carbs:carbs,fat:fat,notes:nutNotes};
+    var newLog=nutLog.filter(function(e){return e.date!==getToday();}).concat([entry]);
     setNutLog(newLog);dbSave(userId,"nut_log",newLog);
     setNutSaved(true);setShowNutForm(false);
     setTimeout(function(){setNutSaved(false);},2000);
@@ -1043,9 +1337,9 @@ function CoachTab(props) {
 
   function getCtx(){
     var sessSum=sessions.slice(-5).map(function(s){return s.date+": "+s.type+" ("+(fmtDur(s.duration)||s.totalTime||"?")+") "+(s.notes||"");}).join("\n");
-    var planSum=((plans&&plans.hyrox)||[]).map(function(w){return "Wk"+w.week+"("+w.date+"): "+w.focus;}).join("\n");
     var nutSum=nutLog.slice(-3).map(function(e){return e.date+": "+e.cals+"kcal P:"+e.protein+"g C:"+e.carbs+"g F:"+e.fat+"g"+(e.notes?" ("+e.notes+")":"");}).join("\n");
-    return {sessSum:sessSum,planSum:planSum,nutSum:nutSum};
+    var profileSum = userProfile ? "Age: "+(userProfile.age||"unknown")+", Weight: "+(userProfile.weight||"unknown")+"kg, Goals: "+(userProfile.goals||[]).join(", ")+(userProfile.eventName?", Event: "+userProfile.eventName+" on "+userProfile.eventDate:"") : "";
+    return {sessSum:sessSum,nutSum:nutSum,profileSum:profileSum};
   }
 
   function sendMessage(text) {
@@ -1054,7 +1348,7 @@ function CoachTab(props) {
     var updated=msgs.concat([userMsg]);
     setMsgs(updated);setInput("");setLoading(true);
     var ctx=getCtx();
-    var system="You are a sports nutritionist and Hyrox performance coach for "+userName+". You know their training inside out.\n\nFORMATTING RULES:\n- Keep responses SHORT - max 3 short paragraphs\n- Max 2 sentences per paragraph\n- Use **bold** for key numbers or actions\n- End with one short question\n\nTONE:\n- Casual and direct, like a smart coach texting\n- Never use: certainly, absolutely, great question, of course\n- Short sentences. Real advice. No waffle.\n\nContext:\nRecent training:\n"+ctx.sessSum+"\n\nHyrox plan:\n"+ctx.planSum+"\n\nNutrition log:\n"+(ctx.nutSum||"Nothing logged yet");
+    var system="You are a personal trainer and sports nutritionist coaching "+userName+". You know them well.\n\nATHLETE PROFILE:\n"+ctx.profileSum+"\n\nFORMATTING:\n- Max 3 short paragraphs\n- Max 2 sentences per paragraph\n- **bold** key numbers/actions\n- End with one short question\n\nTONE: Casual, direct, like a smart coach texting. Short sentences. Real advice. No waffle.\n\nRecent training:\n"+ctx.sessSum+"\n\nNutrition log:\n"+(ctx.nutSum||"Nothing logged yet");
     callAI(updated.map(function(m){return {role:m.role,content:m.content};}),system).then(function(reply){
       setMsgs(function(m){return m.concat([{role:"assistant",content:reply}]);});
       if(voiceOn){
@@ -1150,7 +1444,7 @@ function CoachTab(props) {
 
       <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
         <div style={{padding:"8px 20px",borderBottom:"1px solid "+C.border,flexShrink:0,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <Cap>Nutrition Coach</Cap>
+          <Cap>Coach</Cap>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {speaking&&<Cap color={C.accent}>speaking</Cap>}
             <button onClick={toggleVoice} style={{background:"none",border:"1px solid "+(voiceOn?C.accent:C.border),color:voiceOn?C.accent:C.muted,padding:"4px 10px",fontSize:8,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F,letterSpacing:"0.1em"}}>
@@ -1176,17 +1470,14 @@ function CoachTab(props) {
         </div>
 
         {msgs.length<3&&<div style={{padding:"0 20px 6px",display:"flex",flexWrap:"wrap",gap:5,flexShrink:0}}>
-          {["What should I eat before Hyrox?","How much protein do I need?","Fuelling for a long session","Am I eating enough?"].map(function(s){
+          {["What should I eat before training?","How much protein do I need?","Fuelling for a long session","Am I eating enough?"].map(function(s){
             return <button key={s} onClick={function(){sendMessage(s);}} style={{padding:"4px 9px",background:"none",border:"1px solid "+C.border,fontSize:9,color:C.muted,cursor:"pointer",fontFamily:F}}>{s}</button>;
           })}
         </div>}
 
         <div style={{padding:"8px 20px 20px",borderTop:"1px solid "+C.border,background:C.bg,flexShrink:0}}>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button
-              onClick={listening?stopListening:startListening}
-              disabled={loading}
-              style={{width:44,height:44,flexShrink:0,border:"1px solid "+(listening?C.accent:C.border),background:listening?C.accent:C.surface,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",transition:"all 0.2s"}}>
+            <button onClick={listening?stopListening:startListening} disabled={loading} style={{width:44,height:44,flexShrink:0,border:"1px solid "+(listening?C.accent:C.border),background:listening?C.accent:C.surface,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",transition:"all 0.2s"}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={listening?"#000":C.muted} strokeWidth="2" strokeLinecap="round">
                 <rect x="9" y="2" width="6" height="11" rx="3"/>
                 <path d="M5 10a7 7 0 0 0 14 0"/>
@@ -1207,13 +1498,15 @@ function CoachTab(props) {
 
 // ---- APP ----
 export default function PulseApp() {
-  var [tab, setTab] = useState("log");
+  var [tab, setTab] = useState("plan");
   var [sessions, setSessions] = useState([]);
-  var [targets, setTargets] = useState(DEFAULT_TARGETS);
-  var [plans, setPlans] = useState({hyrox:HYROX_PLAN,strength:STRENGTH_PLAN,running:[],custom:[]});
+  var [targets, setTargets] = useState([]);
+  var [plans, setPlans] = useState({hyrox:[],strength:[],running:[],custom:[]});
   var [user, setUser] = useState(null);
-  var [profile, setProfile] = useState(null);
+  var [userProfile, setUserProfile] = useState(null);
   var [loaded, setLoaded] = useState(false);
+  var [showOnboarding, setShowOnboarding] = useState(false);
+  var [showSettings, setShowSettings] = useState(false);
 
   useEffect(function(){
     sb.auth.getSession().then(function(res){
@@ -1222,7 +1515,7 @@ export default function PulseApp() {
     });
     var sub=sb.auth.onAuthStateChange(function(event,session){
       if(event==="SIGNED_IN"&&session){setUser(session.user);loadUserData(session.user);}
-      if(event==="SIGNED_OUT"){setUser(null);setLoaded(true);}
+      if(event==="SIGNED_OUT"){setUser(null);setUserProfile(null);setLoaded(true);}
     });
     return function(){sub.data.subscription.unsubscribe();};
   },[]);
@@ -1232,19 +1525,51 @@ export default function PulseApp() {
       dbLoad(u.id,"sessions"),
       dbLoad(u.id,"targets"),
       dbLoad(u.id,"plans"),
+      dbLoad(u.id,"profile"),
       sb.from("profiles").select("display_name").eq("id",u.id).single()
     ]);
-    var s=results[0],t=results[1],p=results[2],prof=results[3];
-    if(s&&s.length){
-  setSessions(s);
-} else {
-  setSessions([]);
-}
-    if(t){setTargets(t);}
-    if(p){setPlans(function(prev){return Object.assign({},prev,p);});}
-    if(prof.data&&prof.data.display_name){setProfile(prof.data.display_name);}
-    else{setProfile(u.email.split("@")[0]);}
+    var s=results[0],t=results[1],p=results[2],prof=results[3],supaProf=results[4];
+
+    // Sessions - just load what's saved, no seed data
+    setSessions(s && s.length ? s : []);
+
+    if(t) setTargets(t);
+    if(p) setPlans(function(prev){return Object.assign({},prev,p);});
+
+    // Profile
+    var displayName = (prof && prof.displayName) || (supaProf.data && supaProf.data.display_name) || u.email.split("@")[0];
+    var fullProfile = Object.assign({displayName: displayName}, prof || {});
+    setUserProfile(fullProfile);
+
+    // Show onboarding if no goals set
+    if (!prof || !prof.goals || prof.goals.length === 0) {
+      setShowOnboarding(true);
+    }
+
     setLoaded(true);
+  }
+
+  function handleOnboardingComplete(data) {
+    var newProfile = Object.assign({}, userProfile, {
+      goals: data.goals,
+      eventDate: data.eventDate,
+      eventName: data.eventName,
+      age: data.age,
+      weight: data.weight,
+    });
+    setUserProfile(newProfile);
+    dbSave(user.id, "profile", newProfile);
+    if (data.targets && data.targets.length) {
+      setTargets(data.targets);
+      dbSave(user.id, "targets", data.targets);
+    }
+    setShowOnboarding(false);
+    setTab("plan");
+  }
+
+  function handleProfileUpdate(updatedProfile) {
+    setUserProfile(updatedProfile);
+    dbSave(user.id, "profile", updatedProfile);
   }
 
   function saveSession(s) {
@@ -1287,28 +1612,41 @@ export default function PulseApp() {
     return <AuthScreen onAuth={function(u){setUser(u);loadUserData(u);}}/>;
   }
 
-  var displayName = profile || (user.email ? user.email.split("@")[0] : "Athlete");
+  if(showOnboarding && userProfile){
+    return <OnboardingScreen userName={userProfile.displayName} onComplete={handleOnboardingComplete}/>;
+  }
+
+  var displayName = (userProfile && userProfile.displayName) || "Athlete";
 
   return (
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:F,maxWidth:480,margin:"0 auto"}}>
       <style>{"*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}input::placeholder,textarea::placeholder{color:"+C.faint+";}input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.3);}"}</style>
+
+      {showSettings&&userProfile&&(
+        <SettingsOverlay
+          user={user}
+          profile={userProfile}
+          onClose={function(){setShowSettings(false);}}
+          onUpdate={handleProfileUpdate}
+        />
+      )}
+
       <div style={{borderBottom:"1px solid "+C.border,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:C.bg,zIndex:10}}>
-        <div>
+        <button onClick={function(){setShowSettings(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,textAlign:"left"}}>
           <div style={{fontSize:16,fontWeight:900,letterSpacing:"0.1em",textTransform:"uppercase",color:C.text,fontFamily:F,lineHeight:1}}>Pulse</div>
-          <Cap style={{marginTop:2}}>{displayName}</Cap>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <Cap color={C.muted}>{sessions.length} sessions</Cap>
-          <button onClick={function(){sb.auth.signOut();}} style={{background:"none",border:"1px solid "+C.border,color:C.muted,cursor:"pointer",fontSize:9,fontWeight:700,letterSpacing:"0.1em",padding:"4px 8px",fontFamily:F}}>sign out</button>
-        </div>
+          <Cap style={{marginTop:2,color:C.accent}}>{displayName} ↗</Cap>
+        </button>
+        <Cap color={C.muted}>{sessions.length} sessions</Cap>
       </div>
+
       <div>
         {tab==="log"   &&<SessionsTab sessions={sessions} onDelete={deleteSession}/>}
         {tab==="train" &&<TrainTab onSave={saveSession}/>}
-        {tab==="plan"  &&<PlanTab userId={user.id} onPlanUpdate={handlePlanUpdate} onLogSession={saveSession}/>}
+        {tab==="plan"  &&<PlanTab userId={user.id} onPlanUpdate={handlePlanUpdate} onLogSession={saveSession} userProfile={userProfile}/>}
         {tab==="goals" &&<GoalsTab userId={user.id}/>}
-        {tab==="coach" &&<CoachTab sessions={sessions} targets={targets} plans={plans} onPlanChange={handlePlanUpdate} userName={displayName} userId={user.id}/>}
+        {tab==="coach" &&<CoachTab sessions={sessions} targets={targets} plans={plans} onPlanChange={handlePlanUpdate} userName={displayName} userId={user.id} userProfile={userProfile}/>}
       </div>
+
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.bg,borderTop:"1px solid "+C.border,display:"flex"}}>
         {TABS.map(function(t){
           var active=tab===t.id;
