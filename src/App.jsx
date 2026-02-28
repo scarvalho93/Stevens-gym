@@ -1236,14 +1236,10 @@ export default function PulseApp() {
     ]);
     var s=results[0],t=results[1],p=results[2],prof=results[3];
     if(s&&s.length){
-      var hasS1=s.find(function(x){return x.id==="seed1";}),hasS2=s.find(function(x){return x.id==="seed2";});
-      var seed=[];
-      if(!hasS1){seed.push(SEED_SESSIONS[0]);}
-      if(!hasS2){seed.push(SEED_SESSIONS[1]);}
-      setSessions(seed.concat(s.filter(function(x){return x.id!=="seed1"&&x.id!=="seed2";})));
-    } else {
-      setSessions(SEED_SESSIONS.slice());
-    }
+  setSessions(s);
+} else {
+  setSessions([]);
+}
     if(t){setTargets(t);}
     if(p){setPlans(function(prev){return Object.assign({},prev,p);});}
     if(prof.data&&prof.data.display_name){setProfile(prof.data.display_name);}
