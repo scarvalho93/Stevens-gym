@@ -2,23 +2,23 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 
-// Simple localStorage-based storage to replace window.storage
+// Custom storage for app data (uses different key prefix to avoid conflicts with Supabase)
 window.storage = {
   get: async (key) => {
     try {
-      const val = localStorage.getItem(key)
+      const val = localStorage.getItem('pulse_' + key)
       return val ? { key, value: val } : null
     } catch { return null }
   },
   set: async (key, value) => {
     try {
-      localStorage.setItem(key, value)
+      localStorage.setItem('pulse_' + key, value)
       return { key, value }
     } catch { return null }
   },
   delete: async (key) => {
     try {
-      localStorage.removeItem(key)
+      localStorage.removeItem('pulse_' + key)
       return { key, deleted: true }
     } catch { return null }
   }
