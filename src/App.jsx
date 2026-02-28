@@ -1227,7 +1227,7 @@ export default function PulseApp() {
       <div style={{borderBottom:"1px solid "+C.border,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:C.bg,zIndex:10}}>
         <div>
           <div style={{fontSize:16,fontWeight:900,letterSpacing:"0.1em",textTransform:"uppercase",color:C.text,fontFamily:F,lineHeight:1}}>Pulse</div>
-          <Cap style={{marginTop:2}}>{displayName} - Hyrox 2026</Cap>
+          <Cap style={{marginTop:2}}>{displayName}</Cap>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <Cap color={C.muted}>{sessions.length} sessions</Cap>
