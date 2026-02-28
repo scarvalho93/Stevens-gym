@@ -74,15 +74,14 @@ function callAI(messages, system) {
   }).then(function(d) { return d.content.map(function(b){return b.text||"";}).join(""); });
 }
 
-// ---- ELEVENLABS ----
-function speakEL(text, apiKey, voiceId) {
-  var vid = voiceId || "ErXwobaYiN019PkySvjV";
-  return fetch("https://api.elevenlabs.io/v1/text-to-speech/" + vid, {
+// ---- ELEVENLABS (via proxy) ----
+function speakEL(text) {
+  return fetch("/api/elevenlabs", {
     method:"POST",
-    headers:{"xi-api-key":apiKey,"Content-Type":"application/json","Accept":"audio/mpeg"},
-    body:JSON.stringify({text:text,model_id:"eleven_monolingual_v1",voice_settings:{stability:0.5,similarity_boost:0.5}})
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({text:text,voiceId:"2UMI2FME0FFUFMlUoRER"})
   }).then(function(r) {
-    if (!r.ok) { throw new Error("ElevenLabs " + r.status); }
+    if (!r.ok) { throw new Error("Voice error " + r.status); }
     return r.blob();
   }).then(function(blob) {
     var url = URL.createObjectURL(blob);
@@ -905,21 +904,24 @@ function CoachTab(props) {
   var nutNotes=useState("");var setNutNotes=nutNotes[1];nutNotes=nutNotes[0];
   var nutSaved=useState(false);var setNutSaved=nutSaved[1];nutSaved=nutSaved[0];
   var showNutForm=useState(false);var setShowNutForm=showNutForm[1];showNutForm=showNutForm[0];
-  var msgs=useState([{role:"assistant",content:"Hey "+userName+". I can see your training plan and goals.\n\nAsk me anything about nutrition, fuelling around your sessions, or how to eat for Hyrox."}]);var setMsgs=msgs[1];msgs=msgs[0];
+  var msgs=useState([{role:"assistant",content:"Hey "+userName+". I can see your training plan and goals.\n\nAsk me anything about nutrition, fuelling around your sessions, or how to eat for Hyrox. You can type or tap the mic to speak."}]);
+  var setMsgs=msgs[1];msgs=msgs[0];
   var input=useState("");var setInput=input[1];input=input[0];
   var loading=useState(false);var setLoading=loading[1];loading=loading[0];
-  var elKey=useState("");var setElKey=elKey[1];elKey=elKey[0];
-  var elVoice=useState("ErXwobaYiN019PkySvjV");var setElVoice=elVoice[1];elVoice=elVoice[0];
-  var voiceOn=useState(false);var setVoiceOn=voiceOn[1];voiceOn=voiceOn[0];
   var speaking=useState(false);var setSpeaking=speaking[1];speaking=speaking[0];
-  var showElSettings=useState(false);var setShowElSettings=showElSettings[1];showElSettings=showElSettings[0];
+  var listening=useState(false);var setListening=listening[1];listening=listening[0];
+  var voiceOn=useState(true);var setVoiceOn=voiceOn[1];voiceOn=voiceOn[0];
   var scrollRef=useRef(null);
+  var recognitionRef=useRef(null);
 
   useEffect(function(){
-    dbLoad(userId,"el_key").then(function(d){if(d){setElKey(d.key||"");setElVoice(d.voice||"ErXwobaYiN019PkySvjV");setVoiceOn(d.on||false);}});
     dbLoad(userId,"nut_log").then(function(d){if(d){setNutLog(d);}});
+    dbLoad(userId,"voice_on").then(function(d){if(d!==null){setVoiceOn(d);}});
   },[]);
-  useEffect(function(){if(scrollRef.current){scrollRef.current.scrollIntoView({behavior:"smooth"});}},[msgs]);
+
+  useEffect(function(){
+    if(scrollRef.current){scrollRef.current.scrollIntoView({behavior:"smooth"});}
+  },[msgs]);
 
   function saveNutrition(){
     if(!cals){return;}
@@ -940,23 +942,63 @@ function CoachTab(props) {
     return {sessSum:sessSum,planSum:planSum,nutSum:nutSum};
   }
 
-  function send(){
-    if(!input.trim()||loading){return;}
-    var userMsg={role:"user",content:input.trim()};
+  function sendMessage(text) {
+    if(!text.trim()||loading){return;}
+    var userMsg={role:"user",content:text.trim()};
     var updated=msgs.concat([userMsg]);
     setMsgs(updated);setInput("");setLoading(true);
     var ctx=getCtx();
     var system="You are a sports nutritionist and Hyrox performance coach texting "+userName+" like a knowledgeable mate. You know their training inside out.\n\nFORMATTING RULES - follow these exactly:\n- Separate every idea into its own paragraph with a blank line between them\n- Max 2 sentences per paragraph\n- Use **bold text** to highlight the most important numbers, terms, or actions\n- If listing 3 or more items, use bullet points starting with - \n- Use **Heading** on its own line when switching topics\n- End every response with one short question\n\nTONE:\n- Casual and direct, like a smart coach texting\n- Never use: certainly, absolutely, great question, of course\n- Never start with their name\n- Short sentences. Real advice. No waffle.\n\nContext:\nRecent training:\n"+ctx.sessSum+"\n\nHyrox plan:\n"+ctx.planSum+"\n\nNutrition log:\n"+(ctx.nutSum||"Nothing logged yet");
     callAI(updated.map(function(m){return {role:m.role,content:m.content};}),system).then(function(reply){
       setMsgs(function(m){return m.concat([{role:"assistant",content:reply}]);});
-      if(voiceOn&&elKey){setSpeaking(true);speakEL(reply.slice(0,500),elKey,elVoice).catch(function(e){}).then(function(){setSpeaking(false);});}
+      if(voiceOn){
+        setSpeaking(true);
+        // Strip markdown for speech
+        var spokenText=reply.replace(/\*\*([^*]+)\*\*/g,"$1").replace(/^###\s+/gm,"").replace(/^-\s+/gm,"").slice(0,500);
+        speakEL(spokenText).catch(function(e){console.log("Voice error:",e);}).then(function(){setSpeaking(false);});
+      }
     }).catch(function(){
       setMsgs(function(m){return m.concat([{role:"assistant",content:"Connection issue. Try again."}]);});
     }).then(function(){setLoading(false);});
   }
 
+  function startListening() {
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice input not supported in this browser. Try Chrome.");
+      return;
+    }
+    var recognition = new SpeechRecognition();
+    recognition.lang = "en-GB";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognitionRef.current = recognition;
+    recognition.onstart = function() { setListening(true); };
+    recognition.onresult = function(e) {
+      var transcript = e.results[0][0].transcript;
+      setListening(false);
+      sendMessage(transcript);
+    };
+    recognition.onerror = function() { setListening(false); };
+    recognition.onend = function() { setListening(false); };
+    recognition.start();
+  }
+
+  function stopListening() {
+    if(recognitionRef.current) { recognitionRef.current.stop(); }
+    setListening(false);
+  }
+
+  function toggleVoice() {
+    var nv = !voiceOn;
+    setVoiceOn(nv);
+    dbSave(userId,"voice_on",nv);
+  }
+
   return (
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 116px)",overflow:"hidden"}}>
+
+      {/* NUTRITION PANEL */}
       <div style={{flexShrink:0,borderBottom:"2px solid "+C.border,maxHeight:"44%",overflow:"auto"}}>
         <div style={{padding:"14px 20px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div><Cap>Nutrition</Cap><div style={{fontSize:15,fontWeight:900,color:C.text,fontFamily:F,marginTop:2}}>Today's Fuel</div></div>
@@ -1010,26 +1052,18 @@ function CoachTab(props) {
         )}
       </div>
 
+      {/* CHAT PANEL */}
       <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
         <div style={{padding:"8px 20px",borderBottom:"1px solid "+C.border,flexShrink:0,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <Cap>Nutrition Coach</Cap>
-          <div style={{display:"flex",gap:6}}>
-            {elKey&&<button onClick={function(){setVoiceOn(function(v){var nv=!v;dbSave(userId,"el_key",{key:elKey,voice:elVoice,on:nv});return nv;});}} style={{background:"none",border:"1px solid "+(voiceOn?C.accent:C.border),color:voiceOn?C.accent:C.muted,padding:"4px 8px",fontSize:8,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>{speaking?"...":voiceOn?"voice on":"voice off"}</button>}
-            <button onClick={function(){setShowElSettings(function(s){return !s;});}} style={{background:"none",border:"1px solid "+C.border,color:C.muted,padding:"4px 8px",fontSize:8,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>voice</button>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {speaking&&<Cap color={C.accent} style={{animation:"pulse 1s infinite"}}>speaking</Cap>}
+            <button onClick={toggleVoice} style={{background:"none",border:"1px solid "+(voiceOn?C.accent:C.border),color:voiceOn?C.accent:C.muted,padding:"4px 10px",fontSize:8,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F,letterSpacing:"0.1em"}}>
+              {voiceOn?"voice on":"voice off"}
+            </button>
           </div>
         </div>
-        {showElSettings&&(
-          <div style={{padding:"12px 20px",background:C.surface,borderBottom:"1px solid "+C.border,flexShrink:0}}>
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <Inp value={elKey} onChange={function(e){setElKey(e.target.value);}} placeholder="ElevenLabs API key (elevenlabs.io)"/>
-              <Inp value={elVoice} onChange={function(e){setElVoice(e.target.value);}} placeholder="Voice ID - Antoni: ErXwobaYiN019PkySvjV"/>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <Btn outline={true} onClick={function(){setShowElSettings(false);}}>Cancel</Btn>
-                <Btn onClick={function(){dbSave(userId,"el_key",{key:elKey,voice:elVoice,on:voiceOn});setShowElSettings(false);}}>Save</Btn>
-              </div>
-            </div>
-          </div>
-        )}
+
         <div style={{flex:1,overflowY:"auto",padding:"12px 20px",display:"flex",flexDirection:"column",gap:10}}>
           {msgs.map(function(m,i){
             return <div key={i} style={{display:"flex",flexDirection:"column",alignItems:m.role==="user"?"flex-end":"flex-start"}}>
@@ -1045,21 +1079,54 @@ function CoachTab(props) {
           </div>}
           <div ref={scrollRef}/>
         </div>
+
         {msgs.length<3&&<div style={{padding:"0 20px 6px",display:"flex",flexWrap:"wrap",gap:5,flexShrink:0}}>
           {["What should I eat before Hyrox?","How much protein do I need?","Fuelling for a long session","Am I eating enough?"].map(function(s){
-            return <button key={s} onClick={function(){setInput(s);}} style={{padding:"4px 9px",background:"none",border:"1px solid "+C.border,fontSize:9,color:C.muted,cursor:"pointer",fontFamily:F}}>{s}</button>;
+            return <button key={s} onClick={function(){sendMessage(s);}} style={{padding:"4px 9px",background:"none",border:"1px solid "+C.border,fontSize:9,color:C.muted,cursor:"pointer",fontFamily:F}}>{s}</button>;
           })}
         </div>}
+
         <div style={{padding:"8px 20px 20px",borderTop:"1px solid "+C.border,background:C.bg,flexShrink:0}}>
-          <div style={{display:"flex",gap:8}}>
-            <Inp value={input} onChange={function(e){setInput(e.target.value);}} placeholder="Ask about diet, macros, fuelling..." style={{flex:1}} onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}/>
-            <button onClick={send} disabled={!input.trim()||loading} style={{padding:"10px 14px",background:C.accent,border:"none",cursor:"pointer",fontFamily:F,fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#000",flexShrink:0,opacity:(!input.trim()||loading)?0.5:1}}>Send</button>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {/* MIC BUTTON */}
+            <button
+              onClick={listening?stopListening:startListening}
+              disabled={loading}
+              style={{
+                width:44,height:44,flexShrink:0,border:"1px solid "+(listening?C.accent:C.border),
+                background:listening?C.accent:C.surface,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                position:"relative",transition:"all 0.2s"
+              }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={listening?"#000":C.muted} strokeWidth="2" strokeLinecap="round">
+                <rect x="9" y="2" width="6" height="11" rx="3"/>
+                <path d="M5 10a7 7 0 0 0 14 0"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="8" y1="22" x2="16" y2="22"/>
+              </svg>
+              {listening&&<div style={{position:"absolute",inset:-3,border:"2px solid "+C.accent,borderRadius:0,animation:"ping 1s infinite",opacity:0.5}}/>}
+            </button>
+            <Inp
+              value={input}
+              onChange={function(e){setInput(e.target.value);}}
+              placeholder={listening?"Listening...":"Type or tap mic to speak"}
+              style={{flex:1}}
+              onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage(input);}}}
+            />
+            <button
+              onClick={function(){sendMessage(input);}}
+              disabled={!input.trim()||loading}
+              style={{padding:"10px 14px",background:C.accent,border:"none",cursor:"pointer",fontFamily:F,fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#000",flexShrink:0,opacity:(!input.trim()||loading)?0.5:1}}>
+              Send
+            </button>
           </div>
+          {listening&&<div style={{marginTop:6,fontSize:11,color:C.accent,fontFamily:F,letterSpacing:"0.08em",textTransform:"uppercase",textAlign:"center"}}>Listening -- tap mic to stop</div>}
         </div>
       </div>
     </div>
   );
 }
+
 
 // ---- APP ----
 export default function PulseApp() {
