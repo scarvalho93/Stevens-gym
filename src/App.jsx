@@ -55,10 +55,9 @@ var DEFAULT_TARGETS = [
 // ---- SUPABASE DATA LAYER ----
 async function dbLoad(userId, key) {
   var res = await sb.from("user_data").select("value").eq("user_id", userId).eq("key", key).single();
-  if (res.error || !res.data) { return null; }
+  if (res.error || !res.data) return null;
   return res.data.value;
 }
-
 async function dbSave(userId, key, value) {
   await sb.from("user_data").upsert({user_id: userId, key: key, value: value, updated_at: new Date().toISOString()}, {onConflict: "user_id,key"});
 }
@@ -69,7 +68,7 @@ function callAI(messages, system) {
     method:"POST", headers:{"Content-Type":"application/json"},
     body:JSON.stringify({messages:messages,system:system||""})
   }).then(function(r) {
-    if (!r.ok) { throw new Error("API " + r.status); }
+    if (!r.ok) throw new Error("API " + r.status);
     return r.json();
   }).then(function(d) { return d.content.map(function(b){return b.text||"";}).join(""); });
 }
@@ -81,7 +80,7 @@ function speakEL(text) {
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({text:text,voiceId:"2UMI2FME0FFUFMlUoRER"})
   }).then(function(r) {
-    if (!r.ok) { throw new Error("Voice error " + r.status); }
+    if (!r.ok) throw new Error("Voice error " + r.status);
     return r.blob();
   }).then(function(blob) {
     var url = URL.createObjectURL(blob);
@@ -93,10 +92,10 @@ function speakEL(text) {
 
 // ---- HELPERS ----
 function toSecs(t) {
-  if (!t || t === "--") { return null; }
+  if (!t || t === "--") return null;
   var p = t.split(":").map(Number);
-  if (p.length === 2) { return p[0]*60+p[1]; }
-  if (p.length === 3) { return p[0]*3600+p[1]*60+p[2]; }
+  if (p.length === 2) return p[0]*60+p[1];
+  if (p.length === 3) return p[0]*3600+p[1]*60+p[2];
   return null;
 }
 function calcPace(km, time) {
@@ -106,25 +105,24 @@ function calcPace(km, time) {
   return Math.floor(pace)+":"+String(Math.round((pace%1)*60)).padStart(2,"0")+"/km";
 }
 function prgPct(tgt, cur) {
-  if (!cur) { return 0; }
+  if (!cur) return 0;
   var sT=toSecs(tgt), sC=toSecs(cur);
-  if (sT&&sC) { return Math.min(100,Math.round((sT/sC)*100)); }
+  if (sT&&sC) return Math.min(100,Math.round((sT/sC)*100));
   var n=parseFloat(cur), t=parseFloat(tgt);
-  if (!isNaN(n)&&!isNaN(t)&&t>0) { return Math.min(100,Math.round((n/t)*100)); }
+  if (!isNaN(n)&&!isNaN(t)&&t>0) return Math.min(100,Math.round((n/t)*100));
   return 0;
 }
 function fmtDur(d) {
-  if (!d||d==="--") { return null; }
-  var s=toSecs(d); if (!s) { return null; }
+  if (!d||d==="--") return null;
+  var s=toSecs(d); if (!s) return null;
   var h=Math.floor(s/3600), m=Math.floor((s%3600)/60);
   return h>0 ? h+"h "+m+"m" : m+"m";
 }
-function totalMins(t) { var s=toSecs(t); if(!s){return null;} return Math.round(s/60)+" min"; }
+function totalMins(t) { var s=toSecs(t); if(!s) return null; return Math.round(s/60)+" min"; }
 function getToday() { return new Date().toISOString().split("T")[0]; }
 
 // ---- PRIMITIVES ----
 function HR() { return <div style={{height:1,background:C.border}}/>; }
-
 function Cap(props) {
   return <div style={Object.assign({},{fontSize:props.size||9,fontWeight:700,letterSpacing:"0.13em",textTransform:"uppercase",color:props.color||C.muted,fontFamily:F},props.style||{})}>{props.children}</div>;
 }
@@ -144,7 +142,7 @@ function Btn(props) {
 function Inp(props) {
   var base={display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 13px",outline:"none"};
   var st=Object.assign({},base,props.style||{});
-  if (props.rows) { return <textarea value={props.value} onChange={props.onChange} placeholder={props.placeholder} rows={props.rows} style={Object.assign({},st,{resize:"none"})}/>; }
+  if (props.rows) return <textarea value={props.value} onChange={props.onChange} placeholder={props.placeholder} rows={props.rows} style={Object.assign({},st,{resize:"none"})}/>;
   return <input type={props.type||"text"} value={props.value} onChange={props.onChange} placeholder={props.placeholder} onKeyDown={props.onKeyDown} style={st}/>;
 }
 function Sel(props) {
@@ -174,29 +172,26 @@ function MsgContent(props) {
   var blocks = [];
   rawBlocks.forEach(function(b) {
     var trimB = b.trim();
-    if (!trimB) { return; }
+    if (!trimB) return;
     var sublines = trimB.split("\n").map(function(s){return s.trim();}).filter(Boolean);
     var allBullets = sublines.length > 1 && sublines.every(function(l){return /^[-*]\s/.test(l);});
     if (allBullets || sublines.length === 1) { blocks.push(trimB); return; }
-    sublines.forEach(function(line){ if(line){blocks.push(line);} });
+    sublines.forEach(function(line){ if(line) blocks.push(line); });
   });
-
   function renderInline(str) {
     var parts = str.split(/\*\*(.*?)\*\*/g);
     var result = [];
     parts.forEach(function(part, i) {
-      if (!part) { return; }
-      if (i % 2 === 1) { result.push(<strong key={i} style={{fontWeight:800,color:C.text}}>{part}</strong>); }
-      else { result.push(part); }
+      if (!part) return;
+      if (i % 2 === 1) result.push(<strong key={i} style={{fontWeight:800,color:C.text}}>{part}</strong>);
+      else result.push(part);
     });
     return result;
   }
-
   function renderBlock(block, bi) {
     var trimmed = block.trim();
-    if (!trimmed) { return null; }
+    if (!trimmed) return null;
     var lines = trimmed.split("\n").map(function(l){return l.trim();}).filter(Boolean);
-
     if (/^###\s/.test(trimmed)) {
       return <div key={bi} style={{fontWeight:800,fontSize:11,color:C.accent,fontFamily:F,marginTop:12,marginBottom:5,letterSpacing:"0.1em",textTransform:"uppercase"}}>{trimmed.replace(/^###\s+/,"")}</div>;
     }
@@ -213,18 +208,17 @@ function MsgContent(props) {
     }
     return <p key={bi} style={{margin:"0 0 9px 0",lineHeight:1.65,fontSize:13,fontFamily:F,color:C.text}}>{renderInline(trimmed)}</p>;
   }
-
   return <div style={{margin:0,padding:0}}>{blocks.map(renderBlock).filter(Boolean)}</div>;
 }
 
 // ---- AUTH SCREEN ----
 function AuthScreen(props) {
-  var mode = useState("login"); var setMode=mode[1]; mode=mode[0];
-  var email = useState(""); var setEmail=email[1]; email=email[0];
-  var pass = useState(""); var setPass=pass[1]; pass=pass[0];
-  var name = useState(""); var setName=name[1]; name=name[0];
-  var err = useState(""); var setErr=err[1]; err=err[0];
-  var loading = useState(false); var setLoading=loading[1]; loading=loading[0];
+  var [mode, setMode] = useState("login");
+  var [email, setEmail] = useState("");
+  var [pass, setPass] = useState("");
+  var [name, setName] = useState("");
+  var [err, setErr] = useState("");
+  var [loading, setLoading] = useState(false);
 
   async function doLogin() {
     setLoading(true); setErr("");
@@ -232,18 +226,14 @@ function AuthScreen(props) {
     if (res.error) { setErr(res.error.message); setLoading(false); return; }
     props.onAuth(res.data.user);
   }
-
   async function doSignup() {
     if (!name.trim()) { setErr("Enter your name."); return; }
     if (pass.length < 6) { setErr("Password must be at least 6 characters."); return; }
     setLoading(true); setErr("");
     var res = await sb.auth.signUp({email:email.trim(),password:pass,options:{data:{display_name:name.trim()}}});
     if (res.error) { setErr(res.error.message); setLoading(false); return; }
-    if (res.data.user && !res.data.session) {
-      setErr(""); setMode("confirm");
-    } else if (res.data.user) {
-      props.onAuth(res.data.user);
-    }
+    if (res.data.user && !res.data.session) { setErr(""); setMode("confirm"); }
+    else if (res.data.user) { props.onAuth(res.data.user); }
     setLoading(false);
   }
 
@@ -272,25 +262,16 @@ function AuthScreen(props) {
           })}
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
-          {mode==="signup" && (
-            <div>
-              <Cap style={{marginBottom:5}}>Your Name</Cap>
-              <Inp value={name} onChange={function(e){setName(e.target.value);}} placeholder="First name"/>
-            </div>
+          {mode==="signup"&&(
+            <div><Cap style={{marginBottom:5}}>Your Name</Cap><Inp value={name} onChange={function(e){setName(e.target.value);}} placeholder="First name"/></div>
           )}
-          <div>
-            <Cap style={{marginBottom:5}}>Email</Cap>
-            <Inp type="email" value={email} onChange={function(e){setEmail(e.target.value);}} placeholder="you@email.com" onKeyDown={function(e){if(e.key==="Enter"){mode==="login"?doLogin():doSignup();}}}/>
-          </div>
-          <div>
-            <Cap style={{marginBottom:5}}>Password</Cap>
-            <Inp type="password" value={pass} onChange={function(e){setPass(e.target.value);}} placeholder={mode==="signup"?"Minimum 6 characters":"Your password"} onKeyDown={function(e){if(e.key==="Enter"){mode==="login"?doLogin():doSignup();}}}/>
-          </div>
-          {err && <div style={{fontSize:12,color:C.danger,fontFamily:F,padding:"8px 12px",background:C.danger+"15",border:"1px solid "+C.danger+"40"}}>{err}</div>}
+          <div><Cap style={{marginBottom:5}}>Email</Cap><Inp type="email" value={email} onChange={function(e){setEmail(e.target.value);}} placeholder="you@email.com" onKeyDown={function(e){if(e.key==="Enter"){mode==="login"?doLogin():doSignup();}}}/></div>
+          <div><Cap style={{marginBottom:5}}>Password</Cap><Inp type="password" value={pass} onChange={function(e){setPass(e.target.value);}} placeholder={mode==="signup"?"Minimum 6 characters":"Your password"} onKeyDown={function(e){if(e.key==="Enter"){mode==="login"?doLogin():doSignup();}}}/></div>
+          {err&&<div style={{fontSize:12,color:C.danger,fontFamily:F,padding:"8px 12px",background:C.danger+"15",border:"1px solid "+C.danger+"40"}}>{err}</div>}
           <Btn onClick={mode==="login"?doLogin:doSignup} disabled={loading||!email.trim()||!pass} full={true} style={{marginTop:4}}>
             {loading?"...":(mode==="login"?"Log In":"Create Account")}
           </Btn>
-          {mode==="login" && (
+          {mode==="login"&&(
             <button onClick={async function(){
               if(!email.trim()){setErr("Enter your email first.");return;}
               var res=await sb.auth.resetPasswordForEmail(email.trim());
@@ -306,7 +287,7 @@ function AuthScreen(props) {
 // ---- SESSIONS TAB ----
 function SessionsTab(props) {
   var sessions=props.sessions, onDelete=props.onDelete;
-  var openId=useState(null); var setOpenId=openId[1]; openId=openId[0];
+  var [openId, setOpenId] = useState(null);
   var sorted=sessions.slice().sort(function(a,b){return b.date.localeCompare(a.date);});
   return (
     <div style={{paddingBottom:100}}>
@@ -380,6 +361,8 @@ function SessionsTab(props) {
     </div>
   );
 }
+
+// ---- STRAVA CONNECT ----
 function StravaConnect(props) {
   var onImport = props.onImport;
   var [token, setToken] = useState(null);
@@ -391,21 +374,19 @@ function StravaConnect(props) {
   var CLIENT_ID = "204822";
   var REDIRECT_URI = "https://stevens-gym-vnhb.vercel.app/strava-callback";
 
-  // On mount: check for OAuth code in URL or saved token
   useEffect(function() {
     var params = new URLSearchParams(window.location.search);
     var code = params.get("code");
     if (code) {
-      // Exchange code for token
       window.history.replaceState({}, "", window.location.pathname);
       setLoading(true);
       fetch("/api/strava-auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, grant_type: "authorization_code" })
+        body: JSON.stringify({ code: code, grant_type: "authorization_code" })
       })
-      .then(r => r.json())
-      .then(data => {
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
         if (data.access_token) {
           var t = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at };
           localStorage.setItem("strava_oauth", JSON.stringify(t));
@@ -418,14 +399,12 @@ function StravaConnect(props) {
       })
       .catch(function() { setErr("Connection error."); setLoading(false); });
     } else {
-      // Check saved token
       try {
         var saved = localStorage.getItem("strava_oauth");
         if (saved) {
           var t = JSON.parse(saved);
-          // Refresh if expired
           if (Date.now() / 1000 > t.expires_at - 300) {
-            refreshToken(t.refresh_token);
+            doRefreshToken(t.refresh_token);
           } else {
             setToken(t);
             fetchRuns(t.access_token);
@@ -435,15 +414,15 @@ function StravaConnect(props) {
     }
   }, []);
 
-  function refreshToken(refresh_token) {
+  function doRefreshToken(refresh_token) {
     setLoading(true);
     fetch("/api/strava-auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ grant_type: "refresh_token", refresh_token })
+      body: JSON.stringify({ grant_type: "refresh_token", refresh_token: refresh_token })
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
       if (data.access_token) {
         var t = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at };
         localStorage.setItem("strava_oauth", JSON.stringify(t));
@@ -463,8 +442,8 @@ function StravaConnect(props) {
     fetch("/api/strava-activities", {
       headers: { Authorization: "Bearer " + access_token }
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
       if (Array.isArray(data)) { setRuns(data); }
       else { setErr("Could not load runs."); }
       setLoading(false);
@@ -505,7 +484,7 @@ function StravaConnect(props) {
       notes: [run.name, pace ? "Pace: " + pace : null].filter(Boolean).join(" - "),
       weights: {},
       exercises: [],
-      runData: { distance: parseFloat(run.distance), time: run.time, pace }
+      runData: { distance: parseFloat(run.distance), time: run.time, pace: pace }
     }).then(function() { setImporting(null); });
   }
 
@@ -520,7 +499,7 @@ function StravaConnect(props) {
             Connect with Strava
           </button>
         </div>
-        {err && <div style={{fontSize:12,color:C.danger,fontFamily:F}}>{err}</div>}
+        {err&&<div style={{fontSize:12,color:C.danger,fontFamily:F}}>{err}</div>}
       </div>
     );
   }
@@ -537,12 +516,9 @@ function StravaConnect(props) {
           <button onClick={disconnect} style={{background:"none",border:"none",color:C.faint,padding:"4px 0",fontSize:9,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F}}>Disconnect</button>
         </div>
       </div>
-
-      {loading && <div style={{textAlign:"center",padding:20,color:C.muted,fontFamily:F,fontSize:13}}>Loading runs...</div>}
-      {err && <div style={{fontSize:12,color:C.danger,fontFamily:F}}>{err}</div>}
-
-      {!loading && runs.length === 0 && <div style={{textAlign:"center",padding:20,color:C.muted,fontFamily:F,fontSize:13}}>No recent runs found.</div>}
-
+      {loading&&<div style={{textAlign:"center",padding:20,color:C.muted,fontFamily:F,fontSize:13}}>Loading runs...</div>}
+      {err&&<div style={{fontSize:12,color:C.danger,fontFamily:F}}>{err}</div>}
+      {!loading&&runs.length===0&&<div style={{textAlign:"center",padding:20,color:C.muted,fontFamily:F,fontSize:13}}>No recent runs found.</div>}
       {runs.map(function(run) {
         var pace = calcPaceFromRun(run);
         return (
@@ -574,34 +550,27 @@ function StravaConnect(props) {
 // ---- TRAIN TAB ----
 function TrainTab(props) {
   var onSave=props.onSave;
-  var sub=useState("strength"); var setSub=sub[1]; sub=sub[0];
-  var sDate=useState(getToday()); var setSDate=sDate[1]; sDate=sDate[0];
-  var sType=useState("Strength"); var setSType=sType[1]; sType=sType[0];
-  var sDur=useState(""); var setSDur=sDur[1]; sDur=sDur[0];
-  var exs=useState([{name:"",sets:[{weight:"",reps:""}]}]); var setExs=exs[1]; exs=exs[0];
-  var sSaved=useState(false); var setSSaved=sSaved[1]; sSaved=sSaved[0];
-  var hDate=useState(getToday()); var setHDate=hDate[1]; hDate=hDate[0];
-  var hTime=useState(""); var setHTime=hTime[1]; hTime=hTime[0];
-  var hRounds=useState("3"); var setHRounds=hRounds[1]; hRounds=hRounds[0];
-  var hWB=useState(""); var setHWB=hWB[1]; hWB=hWB[0];
-  var hFC1=useState(""); var setHFC1=hFC1[1]; hFC1=hFC1[0];
-  var hFC2=useState(""); var setHFC2=hFC2[1]; hFC2=hFC2[0];
-  var hLunge=useState(""); var setHLunge=hLunge[1]; hLunge=hLunge[0];
-  var hNotes=useState(""); var setHNotes=hNotes[1]; hNotes=hNotes[0];
-  var hSaved=useState(false); var setHSaved=hSaved[1]; hSaved=hSaved[0];
-  var rDate=useState(getToday()); var setRDate=rDate[1]; rDate=rDate[0];
-  var rType=useState("Easy Run"); var setRType=rType[1]; rType=rType[0];
-  var rDist=useState(""); var setRDist=rDist[1]; rDist=rDist[0];
-  var rTime=useState(""); var setRTime=rTime[1]; rTime=rTime[0];
-  var rNotes=useState(""); var setRNotes=rNotes[1]; rNotes=rNotes[0];
-  var rSaved=useState(false); var setRSaved=rSaved[1]; rSaved=rSaved[0];
-  var stravaToken=useState(""); var setStravaToken=stravaToken[1]; stravaToken=stravaToken[0];
-  var stravaRuns=useState([]); var setStravaRuns=stravaRuns[1]; stravaRuns=stravaRuns[0];
-  var stravaLoading=useState(false); var setStravaLoading=stravaLoading[1]; stravaLoading=stravaLoading[0];
-  var stravaErr=useState(""); var setStravaErr=stravaErr[1]; stravaErr=stravaErr[0];
-  var importing=useState(null); var setImporting=importing[1]; importing=importing[0];
-
-  useEffect(function(){ try{var t=localStorage.getItem("strava_token");if(t){setStravaToken(t);}}catch(e){} },[]);
+  var [sub, setSub] = useState("strength");
+  var [sDate, setSDate] = useState(getToday());
+  var [sType, setSType] = useState("Strength");
+  var [sDur, setSDur] = useState("");
+  var [exs, setExs] = useState([{name:"",sets:[{weight:"",reps:""}]}]);
+  var [sSaved, setSSaved] = useState(false);
+  var [hDate, setHDate] = useState(getToday());
+  var [hTime, setHTime] = useState("");
+  var [hRounds, setHRounds] = useState("3");
+  var [hWB, setHWB] = useState("");
+  var [hFC1, setHFC1] = useState("");
+  var [hFC2, setHFC2] = useState("");
+  var [hLunge, setHLunge] = useState("");
+  var [hNotes, setHNotes] = useState("");
+  var [hSaved, setHSaved] = useState(false);
+  var [rDate, setRDate] = useState(getToday());
+  var [rType, setRType] = useState("Easy Run");
+  var [rDist, setRDist] = useState("");
+  var [rTime, setRTime] = useState("");
+  var [rNotes, setRNotes] = useState("");
+  var [rSaved, setRSaved] = useState(false);
 
   function addEx(){setExs(function(e){return e.concat([{name:"",sets:[{weight:"",reps:""}]}]);});}
   function remEx(i){setExs(function(e){return e.filter(function(_,x){return x!==i;});});}
@@ -614,14 +583,14 @@ function TrainTab(props) {
     var filled=exs.filter(function(ex){return ex.name.trim();}).map(function(ex){
       return {name:ex.name.trim(),sets:ex.sets.filter(function(s){return s.reps||s.weight;}).map(function(s){return {reps:s.reps?parseInt(s.reps):null,weight:s.weight?s.weight+"kg":null};})};
     });
-    if(!filled.length){return;}
+    if(!filled.length) return;
     onSave({id:Date.now()+"",date:sDate,type:sType,totalTime:"--",duration:sDur||"--",rounds:1,notes:filled.map(function(e){return e.name;}).join(", "),weights:{},exercises:filled}).then(function(){
       setSSaved(true);setExs([{name:"",sets:[{weight:"",reps:""}]}]);setSDur("");
       setTimeout(function(){setSSaved(false);},2500);
     });
   }
   function saveHyrox(){
-    if(!hTime){return;}
+    if(!hTime) return;
     onSave({id:Date.now()+"",date:hDate,type:"Sunday Hyrox",totalTime:hTime,duration:hTime,rounds:parseInt(hRounds)||3,
       notes:hNotes,weights:{"Wall Balls":hWB,"Farmers Carry L1":hFC1,"Farmers Carry L2":hFC2,"Lunge Bag":hLunge},exercises:[]}).then(function(){
       setHSaved(true);setHTime("");setHWB("");setHFC1("");setHFC2("");setHLunge("");setHNotes("");
@@ -631,38 +600,13 @@ function TrainTab(props) {
   var rPace=null;
   if(rDist&&rTime&&rTime.indexOf(":")>-1){try{rPace=calcPace(rDist,rTime);}catch(e){}}
   function saveRun(){
-    if(!rDist||!rTime){return;}
+    if(!rDist||!rTime) return;
     onSave({id:Date.now()+"",date:rDate,type:rType,totalTime:rTime,duration:rTime,rounds:1,
       notes:[rNotes,rPace?"Pace: "+rPace:null].filter(Boolean).join(" - "),
       weights:{},exercises:[],runData:{distance:parseFloat(rDist),time:rTime,pace:rPace}}).then(function(){
       setRSaved(true);setRDist("");setRTime("");setRNotes("");
       setTimeout(function(){setRSaved(false);},2500);
     });
-  }
-  function fetchStrava(){
-    if(!stravaToken.trim()){setStravaErr("Paste your token first.");return;}
-    setStravaLoading(true);setStravaErr("");
-    try{localStorage.setItem("strava_token",stravaToken.trim());}catch(e){}
-    fetch("https://www.strava.com/api/v3/athlete/activities?per_page=15",{headers:{Authorization:"Bearer "+stravaToken.trim()}})
-    .then(function(res){if(!res.ok){throw new Error("Strava "+res.status);}return res.json();})
-    .then(function(data){
-      var runs=data.filter(function(a){return a.type==="Run"||a.type==="VirtualRun";}).map(function(a){
-        var secs=a.moving_time||0,dist=(a.distance/1000).toFixed(2);
-        var time=Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
-        var p=null;try{p=calcPace(dist,time);}catch(e){}
-        var date=a.start_date_local?a.start_date_local.split("T")[0]:getToday();
-        return {id:a.id,name:a.name,date:date,distance:dist,time:time,pace:p,
-          elevGain:Math.round(a.total_elevation_gain||0),heartRate:a.average_heartrate?Math.round(a.average_heartrate):null};
-      });
-      setStravaRuns(runs);
-      if(!runs.length){setStravaErr("No recent runs found.");}
-    }).catch(function(e){setStravaErr(e.message);}).then(function(){setStravaLoading(false);});
-  }
-  function importRun(run){
-    setImporting(run.id);
-    onSave({id:Date.now()+"",date:run.date,type:"Run",totalTime:run.time,duration:run.time,rounds:1,
-      notes:[run.name,run.pace?"Pace: "+run.pace:null].filter(Boolean).join(" - "),
-      weights:{},exercises:[],runData:{distance:parseFloat(run.distance),time:run.time,pace:run.pace}}).then(function(){setImporting(null);});
   }
 
   var dateInput = {display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 13px",outline:"none"};
@@ -750,11 +694,14 @@ function TrainTab(props) {
         </div>
       )}
 
-{sub==="strava"&&(
+      {sub==="strava"&&(
         <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
           <StravaConnect onImport={onSave}/>
         </div>
       )}
+    </div>
+  );
+}
 
 // ---- WEEK FORM ----
 function WeekForm(props) {
@@ -792,17 +739,17 @@ function WeekForm(props) {
 // ---- PLAN TAB ----
 function PlanTab(props) {
   var userId=props.userId,onPlanUpdate=props.onPlanUpdate,onLogSession=props.onLogSession;
-  var pt=useState("hyrox");var setPt=pt[1];pt=pt[0];
-  var plans=useState({hyrox:HYROX_PLAN,strength:STRENGTH_PLAN,running:[],custom:[]});var setPlans=plans[1];plans=plans[0];
-  var openW=useState(null);var setOpenW=openW[1];openW=openW[0];
-  var editing=useState(null);var setEditing=editing[1];editing=editing[0];
-  var editD=useState(null);var setEditD=editD[1];editD=editD[0];
-  var showAdd=useState(false);var setShowAdd=showAdd[1];showAdd=showAdd[0];
-  var newW=useState({focus:"",notes:"",rounds:1,duration:"45",date:"",exercises:[""]});var setNewW=newW[1];newW=newW[0];
-  var completing=useState(null);var setCompleting=completing[1];completing=completing[0];
-  var compTime=useState("");var setCompTime=compTime[1];compTime=compTime[0];
-  var compNotes=useState("");var setCompNotes=compNotes[1];compNotes=compNotes[0];
-  var doneWeeks=useState({});var setDoneWeeks=doneWeeks[1];doneWeeks=doneWeeks[0];
+  var [pt, setPt] = useState("hyrox");
+  var [plans, setPlans] = useState({hyrox:HYROX_PLAN,strength:STRENGTH_PLAN,running:[],custom:[]});
+  var [openW, setOpenW] = useState(null);
+  var [editing, setEditing] = useState(null);
+  var [editD, setEditD] = useState(null);
+  var [showAdd, setShowAdd] = useState(false);
+  var [newW, setNewW] = useState({focus:"",notes:"",rounds:1,duration:"45",date:"",exercises:[""]});
+  var [completing, setCompleting] = useState(null);
+  var [compTime, setCompTime] = useState("");
+  var [compNotes, setCompNotes] = useState("");
+  var [doneWeeks, setDoneWeeks] = useState({});
   var daysLeft=Math.max(0,Math.ceil((new Date("2026-04-16")-new Date())/86400000));
 
   useEffect(function(){
@@ -818,7 +765,7 @@ function PlanTab(props) {
   function updateDate(i,v){var u=Object.assign({},plans);u[pt]=cur.map(function(w,x){return x===i?Object.assign({},w,{date:v}):w;});persist(u);}
   function removeWeek(i){var u=Object.assign({},plans);u[pt]=cur.filter(function(_,x){return x!==i;}).map(function(w,x){return Object.assign({},w,{week:x+1});});persist(u);}
   function addWeek(){
-    if(!newW.focus.trim()){return;}
+    if(!newW.focus.trim()) return;
     var u=Object.assign({},plans);
     u[pt]=cur.concat([{week:cur.length+1,date:newW.date||"TBD",rounds:parseInt(newW.rounds)||1,duration:newW.duration,focus:newW.focus,notes:newW.notes,exercises:newW.exercises.filter(function(e){return e.trim();})}]);
     persist(u);setShowAdd(false);setNewW({focus:"",notes:"",rounds:1,duration:"45",date:"",exercises:[""]});
@@ -943,16 +890,16 @@ function PlanTab(props) {
 // ---- GOALS TAB ----
 function GoalsTab(props) {
   var userId=props.userId;
-  var targets=useState(DEFAULT_TARGETS);var setTargets=targets[1];targets=targets[0];
-  var showAddFor=useState(null);var setShowAddFor=showAddFor[1];showAddFor=showAddFor[0];
-  var newT=useState({name:"",target:"",target2:"",unit:"kg",notes:""});var setNewT=newT[1];newT=newT[0];
+  var [targets, setTargets] = useState(DEFAULT_TARGETS);
+  var [showAddFor, setShowAddFor] = useState(null);
+  var [newT, setNewT] = useState({name:"",target:"",target2:"",unit:"kg",notes:""});
 
   useEffect(function(){dbLoad(userId,"targets").then(function(d){if(d){setTargets(d);}});},[]);
   function persist(d){setTargets(d);dbSave(userId,"targets",d);}
   function removeTarget(id){persist(targets.filter(function(t){return t.id!==id;}));}
   function updateField(id,field,val){persist(targets.map(function(t){return t.id===id?Object.assign({},t,{[field]:val}):t;}));}
   function addTarget(cat){
-    if(!newT.name||!newT.target){return;}
+    if(!newT.name||!newT.target) return;
     persist(targets.concat([Object.assign({},newT,{id:Date.now(),current:"",current2:"",category:cat})]));
     setShowAddFor(null);setNewT({name:"",target:"",target2:"",unit:"kg",notes:""});
   }
@@ -1034,7 +981,7 @@ function GoalsTab(props) {
             </div>
           ):(
             <div style={{padding:"10px 20px",borderBottom:"1px solid "+C.border}}>
-              <button onClick={function(){setShowAddFor(cat);setNewT({name:"",target:"",target2:"",unit:"kg",notes:""}); }} style={{background:"none",border:"none",color:C.muted,fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F,padding:0}}>+ Add goal in {cat}</button>
+              <button onClick={function(){setShowAddFor(cat);setNewT({name:"",target:"",target2:"",unit:"kg",notes:""});}} style={{background:"none",border:"none",color:C.muted,fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F,padding:0}}>+ Add goal in {cat}</button>
             </div>
           )}
         </div>;
@@ -1053,23 +1000,22 @@ function GoalsTab(props) {
 
 // ---- COACH TAB ----
 function CoachTab(props) {
-  var sessions=props.sessions,targets=props.targets,plans=props.plans,onPlanChange=props.onPlanChange,userName=props.userName,userId=props.userId;
-  var nutLog=useState([]);var setNutLog=nutLog[1];nutLog=nutLog[0];
-  var nutDate=useState(getToday());var setNutDate=nutDate[1];nutDate=nutDate[0];
-  var cals=useState("");var setCals=cals[1];cals=cals[0];
-  var protein=useState("");var setProtein=protein[1];protein=protein[0];
-  var carbs=useState("");var setCarbs=carbs[1];carbs=carbs[0];
-  var fat=useState("");var setFat=fat[1];fat=fat[0];
-  var nutNotes=useState("");var setNutNotes=nutNotes[1];nutNotes=nutNotes[0];
-  var nutSaved=useState(false);var setNutSaved=nutSaved[1];nutSaved=nutSaved[0];
-  var showNutForm=useState(false);var setShowNutForm=showNutForm[1];showNutForm=showNutForm[0];
-  var msgs=useState([{role:"assistant",content:"Hey "+userName+". I can see your training plan and goals.\n\nAsk me anything about nutrition, fuelling around your sessions, or how to eat for Hyrox. You can type or tap the mic to speak."}]);
-  var setMsgs=msgs[1];msgs=msgs[0];
-  var input=useState("");var setInput=input[1];input=input[0];
-  var loading=useState(false);var setLoading=loading[1];loading=loading[0];
-  var speaking=useState(false);var setSpeaking=speaking[1];speaking=speaking[0];
-  var listening=useState(false);var setListening=listening[1];listening=listening[0];
-  var voiceOn=useState(true);var setVoiceOn=voiceOn[1];voiceOn=voiceOn[0];
+  var sessions=props.sessions,targets=props.targets,plans=props.plans,userName=props.userName,userId=props.userId;
+  var [nutLog, setNutLog] = useState([]);
+  var [nutDate, setNutDate] = useState(getToday());
+  var [cals, setCals] = useState("");
+  var [protein, setProtein] = useState("");
+  var [carbs, setCarbs] = useState("");
+  var [fat, setFat] = useState("");
+  var [nutNotes, setNutNotes] = useState("");
+  var [nutSaved, setNutSaved] = useState(false);
+  var [showNutForm, setShowNutForm] = useState(false);
+  var [msgs, setMsgs] = useState([{role:"assistant",content:"Hey "+userName+". I can see your training plan and goals.\n\nAsk me anything about nutrition, fuelling around your sessions, or how to eat for Hyrox. You can type or tap the mic to speak."}]);
+  var [input, setInput] = useState("");
+  var [loading, setLoading] = useState(false);
+  var [speaking, setSpeaking] = useState(false);
+  var [listening, setListening] = useState(false);
+  var [voiceOn, setVoiceOn] = useState(true);
   var scrollRef=useRef(null);
   var recognitionRef=useRef(null);
 
@@ -1083,7 +1029,7 @@ function CoachTab(props) {
   },[msgs]);
 
   function saveNutrition(){
-    if(!cals){return;}
+    if(!cals) return;
     var entry={id:Date.now(),date:nutDate,cals:cals,protein:protein,carbs:carbs,fat:fat,notes:nutNotes};
     var newLog=nutLog.filter(function(e){return e.date!==nutDate;}).concat([entry]);
     setNutLog(newLog);dbSave(userId,"nut_log",newLog);
@@ -1102,18 +1048,17 @@ function CoachTab(props) {
   }
 
   function sendMessage(text) {
-    if(!text.trim()||loading){return;}
+    if(!text.trim()||loading) return;
     var userMsg={role:"user",content:text.trim()};
     var updated=msgs.concat([userMsg]);
     setMsgs(updated);setInput("");setLoading(true);
     var ctx=getCtx();
-    var system="You are a sports nutritionist and Hyrox performance coach texting "+userName+" like a knowledgeable mate. You know their training inside out.\n\nFORMATTING RULES - follow these exactly:\n- Separate every idea into its own paragraph with a blank line between them\n- Max 2 sentences per paragraph\n- Use **bold text** to highlight the most important numbers, terms, or actions\n- If listing 3 or more items, use bullet points starting with - \n- Use **Heading** on its own line when switching topics\n- End every response with one short question\n\nTONE:\n- Casual and direct, like a smart coach texting\n- Never use: certainly, absolutely, great question, of course\n- Never start with their name\n- Short sentences. Real advice. No waffle.\n\nContext:\nRecent training:\n"+ctx.sessSum+"\n\nHyrox plan:\n"+ctx.planSum+"\n\nNutrition log:\n"+(ctx.nutSum||"Nothing logged yet");
+    var system="You are a sports nutritionist and Hyrox performance coach for "+userName+". You know their training inside out.\n\nFORMATTING RULES:\n- Keep responses SHORT - max 3 short paragraphs\n- Max 2 sentences per paragraph\n- Use **bold** for key numbers or actions\n- End with one short question\n\nTONE:\n- Casual and direct, like a smart coach texting\n- Never use: certainly, absolutely, great question, of course\n- Short sentences. Real advice. No waffle.\n\nContext:\nRecent training:\n"+ctx.sessSum+"\n\nHyrox plan:\n"+ctx.planSum+"\n\nNutrition log:\n"+(ctx.nutSum||"Nothing logged yet");
     callAI(updated.map(function(m){return {role:m.role,content:m.content};}),system).then(function(reply){
       setMsgs(function(m){return m.concat([{role:"assistant",content:reply}]);});
       if(voiceOn){
         setSpeaking(true);
-        // Strip markdown for speech
-        var spokenText=reply.replace(/\*\*([^*]+)\*\*/g,"$1").replace(/^###\s+/gm,"").replace(/^-\s+/gm,"").slice(0,500);
+        var spokenText=reply.replace(/\*\*([^*]+)\*\*/g,"$1").replace(/^###\s+/gm,"").replace(/^-\s+/gm,"").slice(0,400);
         speakEL(spokenText).catch(function(e){console.log("Voice error:",e);}).then(function(){setSpeaking(false);});
       }
     }).catch(function(){
@@ -1123,28 +1068,21 @@ function CoachTab(props) {
 
   function startListening() {
     var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice input not supported in this browser. Try Chrome.");
-      return;
-    }
+    if (!SpeechRecognition) { alert("Voice input not supported in this browser. Try Chrome."); return; }
     var recognition = new SpeechRecognition();
     recognition.lang = "en-GB";
     recognition.continuous = false;
     recognition.interimResults = false;
     recognitionRef.current = recognition;
     recognition.onstart = function() { setListening(true); };
-    recognition.onresult = function(e) {
-      var transcript = e.results[0][0].transcript;
-      setListening(false);
-      sendMessage(transcript);
-    };
+    recognition.onresult = function(e) { var t = e.results[0][0].transcript; setListening(false); sendMessage(t); };
     recognition.onerror = function() { setListening(false); };
     recognition.onend = function() { setListening(false); };
     recognition.start();
   }
 
   function stopListening() {
-    if(recognitionRef.current) { recognitionRef.current.stop(); }
+    if(recognitionRef.current) recognitionRef.current.stop();
     setListening(false);
   }
 
@@ -1156,8 +1094,6 @@ function CoachTab(props) {
 
   return (
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 116px)",overflow:"hidden"}}>
-
-      {/* NUTRITION PANEL */}
       <div style={{flexShrink:0,borderBottom:"2px solid "+C.border,maxHeight:"44%",overflow:"auto"}}>
         <div style={{padding:"14px 20px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div><Cap>Nutrition</Cap><div style={{fontSize:15,fontWeight:900,color:C.text,fontFamily:F,marginTop:2}}>Today's Fuel</div></div>
@@ -1211,12 +1147,11 @@ function CoachTab(props) {
         )}
       </div>
 
-      {/* CHAT PANEL */}
       <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
         <div style={{padding:"8px 20px",borderBottom:"1px solid "+C.border,flexShrink:0,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <Cap>Nutrition Coach</Cap>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {speaking&&<Cap color={C.accent} style={{animation:"pulse 1s infinite"}}>speaking</Cap>}
+            {speaking&&<Cap color={C.accent}>speaking</Cap>}
             <button onClick={toggleVoice} style={{background:"none",border:"1px solid "+(voiceOn?C.accent:C.border),color:voiceOn?C.accent:C.muted,padding:"4px 10px",fontSize:8,fontWeight:700,textTransform:"uppercase",cursor:"pointer",fontFamily:F,letterSpacing:"0.1em"}}>
               {voiceOn?"voice on":"voice off"}
             </button>
@@ -1247,16 +1182,10 @@ function CoachTab(props) {
 
         <div style={{padding:"8px 20px 20px",borderTop:"1px solid "+C.border,background:C.bg,flexShrink:0}}>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            {/* MIC BUTTON */}
             <button
               onClick={listening?stopListening:startListening}
               disabled={loading}
-              style={{
-                width:44,height:44,flexShrink:0,border:"1px solid "+(listening?C.accent:C.border),
-                background:listening?C.accent:C.surface,cursor:"pointer",
-                display:"flex",alignItems:"center",justifyContent:"center",
-                position:"relative",transition:"all 0.2s"
-              }}>
+              style={{width:44,height:44,flexShrink:0,border:"1px solid "+(listening?C.accent:C.border),background:listening?C.accent:C.surface,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",transition:"all 0.2s"}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={listening?"#000":C.muted} strokeWidth="2" strokeLinecap="round">
                 <rect x="9" y="2" width="6" height="11" rx="3"/>
                 <path d="M5 10a7 7 0 0 0 14 0"/>
@@ -1265,19 +1194,8 @@ function CoachTab(props) {
               </svg>
               {listening&&<div style={{position:"absolute",inset:-3,border:"2px solid "+C.accent,borderRadius:0,animation:"ping 1s infinite",opacity:0.5}}/>}
             </button>
-            <Inp
-              value={input}
-              onChange={function(e){setInput(e.target.value);}}
-              placeholder={listening?"Listening...":"Type or tap mic to speak"}
-              style={{flex:1}}
-              onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage(input);}}}
-            />
-            <button
-              onClick={function(){sendMessage(input);}}
-              disabled={!input.trim()||loading}
-              style={{padding:"10px 14px",background:C.accent,border:"none",cursor:"pointer",fontFamily:F,fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#000",flexShrink:0,opacity:(!input.trim()||loading)?0.5:1}}>
-              Send
-            </button>
+            <Inp value={input} onChange={function(e){setInput(e.target.value);}} placeholder={listening?"Listening...":"Type or tap mic to speak"} style={{flex:1}} onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage(input);}}}/>
+            <button onClick={function(){sendMessage(input);}} disabled={!input.trim()||loading} style={{padding:"10px 14px",background:C.accent,border:"none",cursor:"pointer",fontFamily:F,fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#000",flexShrink:0,opacity:(!input.trim()||loading)?0.5:1}}>Send</button>
           </div>
           {listening&&<div style={{marginTop:6,fontSize:11,color:C.accent,fontFamily:F,letterSpacing:"0.08em",textTransform:"uppercase",textAlign:"center"}}>Listening -- tap mic to stop</div>}
         </div>
@@ -1286,25 +1204,20 @@ function CoachTab(props) {
   );
 }
 
-
 // ---- APP ----
 export default function PulseApp() {
-  var tab=useState("log");var setTab=tab[1];tab=tab[0];
-  var sessions=useState([]);var setSessions=sessions[1];sessions=sessions[0];
-  var targets=useState(DEFAULT_TARGETS);var setTargets=targets[1];targets=targets[0];
-  var plans=useState({hyrox:HYROX_PLAN,strength:STRENGTH_PLAN,running:[],custom:[]});var setPlans=plans[1];plans=plans[0];
-  var user=useState(null);var setUser=user[1];user=user[0];
-  var profile=useState(null);var setProfile=profile[1];profile=profile[0];
-  var loaded=useState(false);var setLoaded=loaded[1];loaded=loaded[0];
+  var [tab, setTab] = useState("log");
+  var [sessions, setSessions] = useState([]);
+  var [targets, setTargets] = useState(DEFAULT_TARGETS);
+  var [plans, setPlans] = useState({hyrox:HYROX_PLAN,strength:STRENGTH_PLAN,running:[],custom:[]});
+  var [user, setUser] = useState(null);
+  var [profile, setProfile] = useState(null);
+  var [loaded, setLoaded] = useState(false);
 
   useEffect(function(){
     sb.auth.getSession().then(function(res){
-      if(res.data.session){
-        setUser(res.data.session.user);
-        loadUserData(res.data.session.user);
-      } else {
-        setLoaded(true);
-      }
+      if(res.data.session){ setUser(res.data.session.user); loadUserData(res.data.session.user); }
+      else { setLoaded(true); }
     });
     var sub=sb.auth.onAuthStateChange(function(event,session){
       if(event==="SIGNED_IN"&&session){setUser(session.user);loadUserData(session.user);}
@@ -1314,13 +1227,12 @@ export default function PulseApp() {
   },[]);
 
   async function loadUserData(u) {
-    var prom = [
+    var results = await Promise.all([
       dbLoad(u.id,"sessions"),
       dbLoad(u.id,"targets"),
       dbLoad(u.id,"plans"),
       sb.from("profiles").select("display_name").eq("id",u.id).single()
-    ];
-    var results = await Promise.all(prom);
+    ]);
     var s=results[0],t=results[1],p=results[2],prof=results[3];
     if(s&&s.length){
       var hasS1=s.find(function(x){return x.id==="seed1";}),hasS2=s.find(function(x){return x.id==="seed2";});
