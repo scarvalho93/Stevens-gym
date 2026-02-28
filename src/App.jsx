@@ -380,191 +380,6 @@ function SessionsTab(props) {
     </div>
   );
 }
-
-// ---- TRAIN TAB ----
-function TrainTab(props) {
-  var onSave=props.onSave;
-  var sub=useState("strength"); var setSub=sub[1]; sub=sub[0];
-  var sDate=useState(getToday()); var setSDate=sDate[1]; sDate=sDate[0];
-  var sType=useState("Strength"); var setSType=sType[1]; sType=sType[0];
-  var sDur=useState(""); var setSDur=sDur[1]; sDur=sDur[0];
-  var exs=useState([{name:"",sets:[{weight:"",reps:""}]}]); var setExs=exs[1]; exs=exs[0];
-  var sSaved=useState(false); var setSSaved=sSaved[1]; sSaved=sSaved[0];
-  var hDate=useState(getToday()); var setHDate=hDate[1]; hDate=hDate[0];
-  var hTime=useState(""); var setHTime=hTime[1]; hTime=hTime[0];
-  var hRounds=useState("3"); var setHRounds=hRounds[1]; hRounds=hRounds[0];
-  var hWB=useState(""); var setHWB=hWB[1]; hWB=hWB[0];
-  var hFC1=useState(""); var setHFC1=hFC1[1]; hFC1=hFC1[0];
-  var hFC2=useState(""); var setHFC2=hFC2[1]; hFC2=hFC2[0];
-  var hLunge=useState(""); var setHLunge=hLunge[1]; hLunge=hLunge[0];
-  var hNotes=useState(""); var setHNotes=hNotes[1]; hNotes=hNotes[0];
-  var hSaved=useState(false); var setHSaved=hSaved[1]; hSaved=hSaved[0];
-  var rDate=useState(getToday()); var setRDate=rDate[1]; rDate=rDate[0];
-  var rType=useState("Easy Run"); var setRType=rType[1]; rType=rType[0];
-  var rDist=useState(""); var setRDist=rDist[1]; rDist=rDist[0];
-  var rTime=useState(""); var setRTime=rTime[1]; rTime=rTime[0];
-  var rNotes=useState(""); var setRNotes=rNotes[1]; rNotes=rNotes[0];
-  var rSaved=useState(false); var setRSaved=rSaved[1]; rSaved=rSaved[0];
-  var stravaToken=useState(""); var setStravaToken=stravaToken[1]; stravaToken=stravaToken[0];
-  var stravaRuns=useState([]); var setStravaRuns=stravaRuns[1]; stravaRuns=stravaRuns[0];
-  var stravaLoading=useState(false); var setStravaLoading=stravaLoading[1]; stravaLoading=stravaLoading[0];
-  var stravaErr=useState(""); var setStravaErr=stravaErr[1]; stravaErr=stravaErr[0];
-  var importing=useState(null); var setImporting=importing[1]; importing=importing[0];
-
-  useEffect(function(){ try{var t=localStorage.getItem("strava_token");if(t){setStravaToken(t);}}catch(e){} },[]);
-
-  function addEx(){setExs(function(e){return e.concat([{name:"",sets:[{weight:"",reps:""}]}]);});}
-  function remEx(i){setExs(function(e){return e.filter(function(_,x){return x!==i;});});}
-  function setN(i,v){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{name:v}):ex;});});}
-  function addSet(i){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.concat([{weight:"",reps:""}])}):ex;});});}
-  function remSet(i,j){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.filter(function(_,y){return y!==j;})}):ex;});});}
-  function upSet(i,j,f,v){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.map(function(s,y){return y===j?Object.assign({},s,{[f]:v}):s;})}):ex;});});}
-
-  function saveStrength(){
-    var filled=exs.filter(function(ex){return ex.name.trim();}).map(function(ex){
-      return {name:ex.name.trim(),sets:ex.sets.filter(function(s){return s.reps||s.weight;}).map(function(s){return {reps:s.reps?parseInt(s.reps):null,weight:s.weight?s.weight+"kg":null};})};
-    });
-    if(!filled.length){return;}
-    onSave({id:Date.now()+"",date:sDate,type:sType,totalTime:"--",duration:sDur||"--",rounds:1,notes:filled.map(function(e){return e.name;}).join(", "),weights:{},exercises:filled}).then(function(){
-      setSSaved(true);setExs([{name:"",sets:[{weight:"",reps:""}]}]);setSDur("");
-      setTimeout(function(){setSSaved(false);},2500);
-    });
-  }
-  function saveHyrox(){
-    if(!hTime){return;}
-    onSave({id:Date.now()+"",date:hDate,type:"Sunday Hyrox",totalTime:hTime,duration:hTime,rounds:parseInt(hRounds)||3,
-      notes:hNotes,weights:{"Wall Balls":hWB,"Farmers Carry L1":hFC1,"Farmers Carry L2":hFC2,"Lunge Bag":hLunge},exercises:[]}).then(function(){
-      setHSaved(true);setHTime("");setHWB("");setHFC1("");setHFC2("");setHLunge("");setHNotes("");
-      setTimeout(function(){setHSaved(false);},2500);
-    });
-  }
-  var rPace=null;
-  if(rDist&&rTime&&rTime.indexOf(":")>-1){try{rPace=calcPace(rDist,rTime);}catch(e){}}
-  function saveRun(){
-    if(!rDist||!rTime){return;}
-    onSave({id:Date.now()+"",date:rDate,type:rType,totalTime:rTime,duration:rTime,rounds:1,
-      notes:[rNotes,rPace?"Pace: "+rPace:null].filter(Boolean).join(" - "),
-      weights:{},exercises:[],runData:{distance:parseFloat(rDist),time:rTime,pace:rPace}}).then(function(){
-      setRSaved(true);setRDist("");setRTime("");setRNotes("");
-      setTimeout(function(){setRSaved(false);},2500);
-    });
-  }
-  function fetchStrava(){
-    if(!stravaToken.trim()){setStravaErr("Paste your token first.");return;}
-    setStravaLoading(true);setStravaErr("");
-    try{localStorage.setItem("strava_token",stravaToken.trim());}catch(e){}
-    fetch("https://www.strava.com/api/v3/athlete/activities?per_page=15",{headers:{Authorization:"Bearer "+stravaToken.trim()}})
-    .then(function(res){if(!res.ok){throw new Error("Strava "+res.status);}return res.json();})
-    .then(function(data){
-      var runs=data.filter(function(a){return a.type==="Run"||a.type==="VirtualRun";}).map(function(a){
-        var secs=a.moving_time||0,dist=(a.distance/1000).toFixed(2);
-        var time=Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
-        var p=null;try{p=calcPace(dist,time);}catch(e){}
-        var date=a.start_date_local?a.start_date_local.split("T")[0]:getToday();
-        return {id:a.id,name:a.name,date:date,distance:dist,time:time,pace:p,
-          elevGain:Math.round(a.total_elevation_gain||0),heartRate:a.average_heartrate?Math.round(a.average_heartrate):null};
-      });
-      setStravaRuns(runs);
-      if(!runs.length){setStravaErr("No recent runs found.");}
-    }).catch(function(e){setStravaErr(e.message);}).then(function(){setStravaLoading(false);});
-  }
-  function importRun(run){
-    setImporting(run.id);
-    onSave({id:Date.now()+"",date:run.date,type:"Run",totalTime:run.time,duration:run.time,rounds:1,
-      notes:[run.name,run.pace?"Pace: "+run.pace:null].filter(Boolean).join(" - "),
-      weights:{},exercises:[],runData:{distance:parseFloat(run.distance),time:run.time,pace:run.pace}}).then(function(){setImporting(null);});
-  }
-
-  var dateInput = {display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 13px",outline:"none"};
-
-  return (
-    <div style={{paddingBottom:100}}>
-      <div style={{padding:"28px 20px 16px"}}>
-        <Cap>Log Session</Cap>
-        <div style={{fontSize:24,fontWeight:900,letterSpacing:"-0.03em",color:C.text,marginTop:6,fontFamily:F}}>Train</div>
-      </div>
-      <HR/>
-      <div style={{display:"flex",borderBottom:"1px solid "+C.border,overflowX:"auto"}}>
-        {[["strength","Strength"],["hyrox","Hyrox"],["run","Run"],["strava","Strava"]].map(function(item){
-          return <button key={item[0]} onClick={function(){setSub(item[0]);}} style={{flex:"0 0 auto",padding:"11px 18px",background:"none",border:"none",borderBottom:"2px solid "+(sub===item[0]?C.accent:"transparent"),color:sub===item[0]?C.accent:C.muted,fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F,whiteSpace:"nowrap"}}>{item[1]}</button>;
-        })}
-      </div>
-
-      {sub==="strength"&&(
-        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
-          <div><Cap style={{marginBottom:5}}>Date</Cap><input type="date" value={sDate} onChange={function(e){setSDate(e.target.value);}} style={dateInput}/></div>
-          <div><Cap style={{marginBottom:5}}>Type</Cap><Sel value={sType} onChange={function(e){setSType(e.target.value);}}><option>Strength</option><option>Cardio</option><option>Mixed</option><option>Other</option></Sel></div>
-          <div><Cap style={{marginBottom:5}}>Duration</Cap><Inp value={sDur} onChange={function(e){setSDur(e.target.value);}} placeholder="e.g. 1:00:00 (optional)"/></div>
-          <HR/>
-          {exs.map(function(ex,i){
-            return <div key={i} style={{background:C.surface,border:"1px solid "+C.border}}>
-              <div style={{padding:"10px 12px",display:"flex",gap:8,borderBottom:"1px solid "+C.border,alignItems:"center"}}>
-                <Inp value={ex.name} onChange={function(e){setN(i,e.target.value);}} placeholder="Exercise name" style={{flex:1}}/>
-                {exs.length>1&&<button onClick={function(){remEx(i);}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,fontFamily:F,flexShrink:0}}>x</button>}
-              </div>
-              <div style={{padding:"8px 12px"}}>
-                <div style={{display:"grid",gridTemplateColumns:"20px 1fr 1fr 20px",gap:8,marginBottom:6,alignItems:"center"}}>
-                  <Cap color={C.faint}>#</Cap><Cap>kg</Cap><Cap>Reps</Cap><span/>
-                </div>
-                {ex.sets.map(function(s,j){
-                  return <div key={j} style={{display:"grid",gridTemplateColumns:"20px 1fr 1fr 20px",gap:8,marginBottom:6,alignItems:"center"}}>
-                    <Cap color={C.faint} style={{textAlign:"center"}}>{j+1}</Cap>
-                    <Inp type="number" value={s.weight} placeholder="kg" onChange={function(e){upSet(i,j,"weight",e.target.value);}}/>
-                    <Inp type="number" value={s.reps} placeholder="reps" onChange={function(e){upSet(i,j,"reps",e.target.value);}}/>
-                    {ex.sets.length>1?<button onClick={function(){remSet(i,j);}} style={{background:"none",border:"none",color:C.faint,cursor:"pointer",fontSize:10,fontFamily:F}}>x</button>:<span/>}
-                  </div>;
-                })}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderTop:"1px solid "+C.border}}>
-                <button onClick={function(){addSet(i);}} style={{padding:"8px 0",background:"none",border:"none",borderRight:"1px solid "+C.border,fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:C.muted,cursor:"pointer",fontFamily:F}}>+ Set</button>
-                <button onClick={function(){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.concat([Object.assign({},ex.sets[ex.sets.length-1])])}):ex;});});}} style={{padding:"8px 0",background:"none",border:"none",fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:C.muted,cursor:"pointer",fontFamily:F}}>Repeat</button>
-              </div>
-            </div>;
-          })}
-          <Btn outline={true} onClick={addEx} full={true}>+ Add Exercise</Btn>
-          <Btn onClick={saveStrength} full={true} style={{background:sSaved?C.green:C.accent}}>{sSaved?"Saved!":"Save Session"}</Btn>
-        </div>
-      )}
-
-      {sub==="hyrox"&&(
-        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
-          <div><Cap style={{marginBottom:5}}>Date</Cap><input type="date" value={hDate} onChange={function(e){setHDate(e.target.value);}} style={dateInput}/></div>
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10}}>
-            <div><Cap style={{marginBottom:5}}>Total Time</Cap><Inp value={hTime} onChange={function(e){setHTime(e.target.value);}} placeholder="e.g. 47:32"/></div>
-            <div><Cap style={{marginBottom:5}}>Rounds</Cap><Inp type="number" value={hRounds} onChange={function(e){setHRounds(e.target.value);}}/></div>
-          </div>
-          <Cap>Weights Used (kg)</Cap>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <div><Cap style={{marginBottom:5}}>Wall Balls</Cap><Inp type="number" value={hWB} onChange={function(e){setHWB(e.target.value);}} placeholder="kg"/></div>
-            <div><Cap style={{marginBottom:5}}>Farmers Carry L1</Cap><Inp type="number" value={hFC1} onChange={function(e){setHFC1(e.target.value);}} placeholder="kg"/></div>
-            <div><Cap style={{marginBottom:5}}>Farmers Carry L2</Cap><Inp type="number" value={hFC2} onChange={function(e){setHFC2(e.target.value);}} placeholder="kg"/></div>
-            <div><Cap style={{marginBottom:5}}>Lunge Bag</Cap><Inp type="number" value={hLunge} onChange={function(e){setHLunge(e.target.value);}} placeholder="kg"/></div>
-          </div>
-          <div><Cap style={{marginBottom:5}}>Notes</Cap><Inp value={hNotes} onChange={function(e){setHNotes(e.target.value);}} placeholder="How did it feel?" rows={2}/></div>
-          <Btn onClick={saveHyrox} disabled={!hTime} full={true} style={{background:hSaved?C.green:C.accent}}>{hSaved?"Saved!":"Save Hyrox Session"}</Btn>
-        </div>
-      )}
-
-      {sub==="run"&&(
-        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
-          <div><Cap style={{marginBottom:5}}>Date</Cap><input type="date" value={rDate} onChange={function(e){setRDate(e.target.value);}} style={dateInput}/></div>
-          <div><Cap style={{marginBottom:5}}>Run Type</Cap><Sel value={rType} onChange={function(e){setRType(e.target.value);}}><option>Easy Run</option><option>Tempo Run</option><option>Intervals</option><option>Long Run</option><option>5K Race</option><option>10K Race</option><option>Half Marathon</option><option>Marathon</option></Sel></div>
-          <div><Cap style={{marginBottom:5}}>Distance (km)</Cap><Inp type="number" value={rDist} onChange={function(e){setRDist(e.target.value);}} placeholder="e.g. 5.0"/></div>
-          <div><Cap style={{marginBottom:5}}>Time (mm:ss or h:mm:ss)</Cap><Inp value={rTime} onChange={function(e){setRTime(e.target.value);}} placeholder="e.g. 25:30"/></div>
-          {rPace&&<div style={{background:C.accentDim,border:"1px solid "+C.accent+"30",padding:"12px 14px",display:"flex",justifyContent:"space-between"}}>
-            <div><Cap>Pace</Cap><div style={{fontSize:20,fontWeight:900,color:C.accent,fontFamily:F,marginTop:2}}>{rPace}</div></div>
-            <div style={{textAlign:"right"}}><Cap>Total</Cap><div style={{fontSize:14,fontWeight:700,color:C.text,fontFamily:F,marginTop:2}}>{totalMins(rTime)||rTime}</div></div>
-          </div>}
-          <div><Cap style={{marginBottom:5}}>Notes</Cap><Inp value={rNotes} onChange={function(e){setRNotes(e.target.value);}} placeholder="Route, how it felt" rows={2}/></div>
-          <Btn onClick={saveRun} disabled={!rDist||!rTime} full={true} style={{background:rSaved?C.green:C.accent}}>{rSaved?"Saved!":"Save Run"}</Btn>
-        </div>
-      )}
-
-{sub==="strava"&&(
-        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
-          <StravaConnect onImport={onSave}/>
-        </div>
-      )}
 function StravaConnect(props) {
   var onImport = props.onImport;
   var [token, setToken] = useState(null);
@@ -755,6 +570,192 @@ function StravaConnect(props) {
     </div>
   );
 }
+
+// ---- TRAIN TAB ----
+function TrainTab(props) {
+  var onSave=props.onSave;
+  var sub=useState("strength"); var setSub=sub[1]; sub=sub[0];
+  var sDate=useState(getToday()); var setSDate=sDate[1]; sDate=sDate[0];
+  var sType=useState("Strength"); var setSType=sType[1]; sType=sType[0];
+  var sDur=useState(""); var setSDur=sDur[1]; sDur=sDur[0];
+  var exs=useState([{name:"",sets:[{weight:"",reps:""}]}]); var setExs=exs[1]; exs=exs[0];
+  var sSaved=useState(false); var setSSaved=sSaved[1]; sSaved=sSaved[0];
+  var hDate=useState(getToday()); var setHDate=hDate[1]; hDate=hDate[0];
+  var hTime=useState(""); var setHTime=hTime[1]; hTime=hTime[0];
+  var hRounds=useState("3"); var setHRounds=hRounds[1]; hRounds=hRounds[0];
+  var hWB=useState(""); var setHWB=hWB[1]; hWB=hWB[0];
+  var hFC1=useState(""); var setHFC1=hFC1[1]; hFC1=hFC1[0];
+  var hFC2=useState(""); var setHFC2=hFC2[1]; hFC2=hFC2[0];
+  var hLunge=useState(""); var setHLunge=hLunge[1]; hLunge=hLunge[0];
+  var hNotes=useState(""); var setHNotes=hNotes[1]; hNotes=hNotes[0];
+  var hSaved=useState(false); var setHSaved=hSaved[1]; hSaved=hSaved[0];
+  var rDate=useState(getToday()); var setRDate=rDate[1]; rDate=rDate[0];
+  var rType=useState("Easy Run"); var setRType=rType[1]; rType=rType[0];
+  var rDist=useState(""); var setRDist=rDist[1]; rDist=rDist[0];
+  var rTime=useState(""); var setRTime=rTime[1]; rTime=rTime[0];
+  var rNotes=useState(""); var setRNotes=rNotes[1]; rNotes=rNotes[0];
+  var rSaved=useState(false); var setRSaved=rSaved[1]; rSaved=rSaved[0];
+  var stravaToken=useState(""); var setStravaToken=stravaToken[1]; stravaToken=stravaToken[0];
+  var stravaRuns=useState([]); var setStravaRuns=stravaRuns[1]; stravaRuns=stravaRuns[0];
+  var stravaLoading=useState(false); var setStravaLoading=stravaLoading[1]; stravaLoading=stravaLoading[0];
+  var stravaErr=useState(""); var setStravaErr=stravaErr[1]; stravaErr=stravaErr[0];
+  var importing=useState(null); var setImporting=importing[1]; importing=importing[0];
+
+  useEffect(function(){ try{var t=localStorage.getItem("strava_token");if(t){setStravaToken(t);}}catch(e){} },[]);
+
+  function addEx(){setExs(function(e){return e.concat([{name:"",sets:[{weight:"",reps:""}]}]);});}
+  function remEx(i){setExs(function(e){return e.filter(function(_,x){return x!==i;});});}
+  function setN(i,v){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{name:v}):ex;});});}
+  function addSet(i){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.concat([{weight:"",reps:""}])}):ex;});});}
+  function remSet(i,j){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.filter(function(_,y){return y!==j;})}):ex;});});}
+  function upSet(i,j,f,v){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.map(function(s,y){return y===j?Object.assign({},s,{[f]:v}):s;})}):ex;});});}
+
+  function saveStrength(){
+    var filled=exs.filter(function(ex){return ex.name.trim();}).map(function(ex){
+      return {name:ex.name.trim(),sets:ex.sets.filter(function(s){return s.reps||s.weight;}).map(function(s){return {reps:s.reps?parseInt(s.reps):null,weight:s.weight?s.weight+"kg":null};})};
+    });
+    if(!filled.length){return;}
+    onSave({id:Date.now()+"",date:sDate,type:sType,totalTime:"--",duration:sDur||"--",rounds:1,notes:filled.map(function(e){return e.name;}).join(", "),weights:{},exercises:filled}).then(function(){
+      setSSaved(true);setExs([{name:"",sets:[{weight:"",reps:""}]}]);setSDur("");
+      setTimeout(function(){setSSaved(false);},2500);
+    });
+  }
+  function saveHyrox(){
+    if(!hTime){return;}
+    onSave({id:Date.now()+"",date:hDate,type:"Sunday Hyrox",totalTime:hTime,duration:hTime,rounds:parseInt(hRounds)||3,
+      notes:hNotes,weights:{"Wall Balls":hWB,"Farmers Carry L1":hFC1,"Farmers Carry L2":hFC2,"Lunge Bag":hLunge},exercises:[]}).then(function(){
+      setHSaved(true);setHTime("");setHWB("");setHFC1("");setHFC2("");setHLunge("");setHNotes("");
+      setTimeout(function(){setHSaved(false);},2500);
+    });
+  }
+  var rPace=null;
+  if(rDist&&rTime&&rTime.indexOf(":")>-1){try{rPace=calcPace(rDist,rTime);}catch(e){}}
+  function saveRun(){
+    if(!rDist||!rTime){return;}
+    onSave({id:Date.now()+"",date:rDate,type:rType,totalTime:rTime,duration:rTime,rounds:1,
+      notes:[rNotes,rPace?"Pace: "+rPace:null].filter(Boolean).join(" - "),
+      weights:{},exercises:[],runData:{distance:parseFloat(rDist),time:rTime,pace:rPace}}).then(function(){
+      setRSaved(true);setRDist("");setRTime("");setRNotes("");
+      setTimeout(function(){setRSaved(false);},2500);
+    });
+  }
+  function fetchStrava(){
+    if(!stravaToken.trim()){setStravaErr("Paste your token first.");return;}
+    setStravaLoading(true);setStravaErr("");
+    try{localStorage.setItem("strava_token",stravaToken.trim());}catch(e){}
+    fetch("https://www.strava.com/api/v3/athlete/activities?per_page=15",{headers:{Authorization:"Bearer "+stravaToken.trim()}})
+    .then(function(res){if(!res.ok){throw new Error("Strava "+res.status);}return res.json();})
+    .then(function(data){
+      var runs=data.filter(function(a){return a.type==="Run"||a.type==="VirtualRun";}).map(function(a){
+        var secs=a.moving_time||0,dist=(a.distance/1000).toFixed(2);
+        var time=Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
+        var p=null;try{p=calcPace(dist,time);}catch(e){}
+        var date=a.start_date_local?a.start_date_local.split("T")[0]:getToday();
+        return {id:a.id,name:a.name,date:date,distance:dist,time:time,pace:p,
+          elevGain:Math.round(a.total_elevation_gain||0),heartRate:a.average_heartrate?Math.round(a.average_heartrate):null};
+      });
+      setStravaRuns(runs);
+      if(!runs.length){setStravaErr("No recent runs found.");}
+    }).catch(function(e){setStravaErr(e.message);}).then(function(){setStravaLoading(false);});
+  }
+  function importRun(run){
+    setImporting(run.id);
+    onSave({id:Date.now()+"",date:run.date,type:"Run",totalTime:run.time,duration:run.time,rounds:1,
+      notes:[run.name,run.pace?"Pace: "+run.pace:null].filter(Boolean).join(" - "),
+      weights:{},exercises:[],runData:{distance:parseFloat(run.distance),time:run.time,pace:run.pace}}).then(function(){setImporting(null);});
+  }
+
+  var dateInput = {display:"block",width:"100%",boxSizing:"border-box",background:C.surface,border:"1px solid "+C.border,color:C.text,fontSize:14,fontFamily:F,padding:"10px 13px",outline:"none"};
+
+  return (
+    <div style={{paddingBottom:100}}>
+      <div style={{padding:"28px 20px 16px"}}>
+        <Cap>Log Session</Cap>
+        <div style={{fontSize:24,fontWeight:900,letterSpacing:"-0.03em",color:C.text,marginTop:6,fontFamily:F}}>Train</div>
+      </div>
+      <HR/>
+      <div style={{display:"flex",borderBottom:"1px solid "+C.border,overflowX:"auto"}}>
+        {[["strength","Strength"],["hyrox","Hyrox"],["run","Run"],["strava","Strava"]].map(function(item){
+          return <button key={item[0]} onClick={function(){setSub(item[0]);}} style={{flex:"0 0 auto",padding:"11px 18px",background:"none",border:"none",borderBottom:"2px solid "+(sub===item[0]?C.accent:"transparent"),color:sub===item[0]?C.accent:C.muted,fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",fontFamily:F,whiteSpace:"nowrap"}}>{item[1]}</button>;
+        })}
+      </div>
+
+      {sub==="strength"&&(
+        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
+          <div><Cap style={{marginBottom:5}}>Date</Cap><input type="date" value={sDate} onChange={function(e){setSDate(e.target.value);}} style={dateInput}/></div>
+          <div><Cap style={{marginBottom:5}}>Type</Cap><Sel value={sType} onChange={function(e){setSType(e.target.value);}}><option>Strength</option><option>Cardio</option><option>Mixed</option><option>Other</option></Sel></div>
+          <div><Cap style={{marginBottom:5}}>Duration</Cap><Inp value={sDur} onChange={function(e){setSDur(e.target.value);}} placeholder="e.g. 1:00:00 (optional)"/></div>
+          <HR/>
+          {exs.map(function(ex,i){
+            return <div key={i} style={{background:C.surface,border:"1px solid "+C.border}}>
+              <div style={{padding:"10px 12px",display:"flex",gap:8,borderBottom:"1px solid "+C.border,alignItems:"center"}}>
+                <Inp value={ex.name} onChange={function(e){setN(i,e.target.value);}} placeholder="Exercise name" style={{flex:1}}/>
+                {exs.length>1&&<button onClick={function(){remEx(i);}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,fontFamily:F,flexShrink:0}}>x</button>}
+              </div>
+              <div style={{padding:"8px 12px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"20px 1fr 1fr 20px",gap:8,marginBottom:6,alignItems:"center"}}>
+                  <Cap color={C.faint}>#</Cap><Cap>kg</Cap><Cap>Reps</Cap><span/>
+                </div>
+                {ex.sets.map(function(s,j){
+                  return <div key={j} style={{display:"grid",gridTemplateColumns:"20px 1fr 1fr 20px",gap:8,marginBottom:6,alignItems:"center"}}>
+                    <Cap color={C.faint} style={{textAlign:"center"}}>{j+1}</Cap>
+                    <Inp type="number" value={s.weight} placeholder="kg" onChange={function(e){upSet(i,j,"weight",e.target.value);}}/>
+                    <Inp type="number" value={s.reps} placeholder="reps" onChange={function(e){upSet(i,j,"reps",e.target.value);}}/>
+                    {ex.sets.length>1?<button onClick={function(){remSet(i,j);}} style={{background:"none",border:"none",color:C.faint,cursor:"pointer",fontSize:10,fontFamily:F}}>x</button>:<span/>}
+                  </div>;
+                })}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderTop:"1px solid "+C.border}}>
+                <button onClick={function(){addSet(i);}} style={{padding:"8px 0",background:"none",border:"none",borderRight:"1px solid "+C.border,fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:C.muted,cursor:"pointer",fontFamily:F}}>+ Set</button>
+                <button onClick={function(){setExs(function(e){return e.map(function(ex,x){return x===i?Object.assign({},ex,{sets:ex.sets.concat([Object.assign({},ex.sets[ex.sets.length-1])])}):ex;});});}} style={{padding:"8px 0",background:"none",border:"none",fontSize:9,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:C.muted,cursor:"pointer",fontFamily:F}}>Repeat</button>
+              </div>
+            </div>;
+          })}
+          <Btn outline={true} onClick={addEx} full={true}>+ Add Exercise</Btn>
+          <Btn onClick={saveStrength} full={true} style={{background:sSaved?C.green:C.accent}}>{sSaved?"Saved!":"Save Session"}</Btn>
+        </div>
+      )}
+
+      {sub==="hyrox"&&(
+        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
+          <div><Cap style={{marginBottom:5}}>Date</Cap><input type="date" value={hDate} onChange={function(e){setHDate(e.target.value);}} style={dateInput}/></div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10}}>
+            <div><Cap style={{marginBottom:5}}>Total Time</Cap><Inp value={hTime} onChange={function(e){setHTime(e.target.value);}} placeholder="e.g. 47:32"/></div>
+            <div><Cap style={{marginBottom:5}}>Rounds</Cap><Inp type="number" value={hRounds} onChange={function(e){setHRounds(e.target.value);}}/></div>
+          </div>
+          <Cap>Weights Used (kg)</Cap>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><Cap style={{marginBottom:5}}>Wall Balls</Cap><Inp type="number" value={hWB} onChange={function(e){setHWB(e.target.value);}} placeholder="kg"/></div>
+            <div><Cap style={{marginBottom:5}}>Farmers Carry L1</Cap><Inp type="number" value={hFC1} onChange={function(e){setHFC1(e.target.value);}} placeholder="kg"/></div>
+            <div><Cap style={{marginBottom:5}}>Farmers Carry L2</Cap><Inp type="number" value={hFC2} onChange={function(e){setHFC2(e.target.value);}} placeholder="kg"/></div>
+            <div><Cap style={{marginBottom:5}}>Lunge Bag</Cap><Inp type="number" value={hLunge} onChange={function(e){setHLunge(e.target.value);}} placeholder="kg"/></div>
+          </div>
+          <div><Cap style={{marginBottom:5}}>Notes</Cap><Inp value={hNotes} onChange={function(e){setHNotes(e.target.value);}} placeholder="How did it feel?" rows={2}/></div>
+          <Btn onClick={saveHyrox} disabled={!hTime} full={true} style={{background:hSaved?C.green:C.accent}}>{hSaved?"Saved!":"Save Hyrox Session"}</Btn>
+        </div>
+      )}
+
+      {sub==="run"&&(
+        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
+          <div><Cap style={{marginBottom:5}}>Date</Cap><input type="date" value={rDate} onChange={function(e){setRDate(e.target.value);}} style={dateInput}/></div>
+          <div><Cap style={{marginBottom:5}}>Run Type</Cap><Sel value={rType} onChange={function(e){setRType(e.target.value);}}><option>Easy Run</option><option>Tempo Run</option><option>Intervals</option><option>Long Run</option><option>5K Race</option><option>10K Race</option><option>Half Marathon</option><option>Marathon</option></Sel></div>
+          <div><Cap style={{marginBottom:5}}>Distance (km)</Cap><Inp type="number" value={rDist} onChange={function(e){setRDist(e.target.value);}} placeholder="e.g. 5.0"/></div>
+          <div><Cap style={{marginBottom:5}}>Time (mm:ss or h:mm:ss)</Cap><Inp value={rTime} onChange={function(e){setRTime(e.target.value);}} placeholder="e.g. 25:30"/></div>
+          {rPace&&<div style={{background:C.accentDim,border:"1px solid "+C.accent+"30",padding:"12px 14px",display:"flex",justifyContent:"space-between"}}>
+            <div><Cap>Pace</Cap><div style={{fontSize:20,fontWeight:900,color:C.accent,fontFamily:F,marginTop:2}}>{rPace}</div></div>
+            <div style={{textAlign:"right"}}><Cap>Total</Cap><div style={{fontSize:14,fontWeight:700,color:C.text,fontFamily:F,marginTop:2}}>{totalMins(rTime)||rTime}</div></div>
+          </div>}
+          <div><Cap style={{marginBottom:5}}>Notes</Cap><Inp value={rNotes} onChange={function(e){setRNotes(e.target.value);}} placeholder="Route, how it felt" rows={2}/></div>
+          <Btn onClick={saveRun} disabled={!rDist||!rTime} full={true} style={{background:rSaved?C.green:C.accent}}>{rSaved?"Saved!":"Save Run"}</Btn>
+        </div>
+      )}
+
+{sub==="strava"&&(
+        <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:12}}>
+          <StravaConnect onImport={onSave}/>
+        </div>
+      )}
+
 // ---- WEEK FORM ----
 function WeekForm(props) {
   var data=props.data,setData=props.setData;
