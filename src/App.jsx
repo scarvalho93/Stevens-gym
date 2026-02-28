@@ -63,11 +63,11 @@ async function dbSave(userId, key, value) {
   await sb.from("user_data").upsert({user_id: userId, key: key, value: value, updated_at: new Date().toISOString()}, {onConflict: "user_id,key"});
 }
 
-// ---- AI ----
+// ---- AI (via proxy) ----
 function callAI(messages, system) {
-  return fetch("https://api.anthropic.com/v1/messages", {
+  return fetch("/api/chat", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,system:system||"",messages:messages})
+    body:JSON.stringify({messages:messages,system:system||""})
   }).then(function(r) {
     if (!r.ok) { throw new Error("API " + r.status); }
     return r.json();
